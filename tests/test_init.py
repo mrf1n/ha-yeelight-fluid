@@ -100,6 +100,10 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             "#00FF00",
         ]
         assert state.state == "#00FFFF"
+        favorites = registry.async_get("light.ylbt_chri_eeff_light").options["light"]
+        assert favorites["favorite_colors"] == [
+            {"hs_color": [h, 100]} for h in (180, 150, 90, 60, 30, 240, 120)
+        ]
         await hass.services.async_call(
             "select",
             "select_option",

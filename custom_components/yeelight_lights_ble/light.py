@@ -12,13 +12,18 @@ from homeassistant.components.light import (
     ATTR_EFFECT,
     ATTR_HS_COLOR,
     ATTR_TRANSITION,
+    DOMAIN as LIGHT_DOMAIN,
     ColorMode,
     LightEntity,
     LightEntityFeature,
 )
-from homeassistant.core import HomeAssistant
+from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ServiceValidationError
-from homeassistant.helpers import config_validation as cv, entity_platform
+from homeassistant.helpers import (
+    config_validation as cv,
+    entity_platform,
+    entity_registry as er,
+)
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import YeelightBleConfigEntry
@@ -98,6 +103,7 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
         self._attr_min_color_temp_kelvin = product.min_kelvin
         self._attr_max_color_temp_kelvin = product.max_kelvin
         self._attr_effect_list = [*self._catalog.names, EFFECT_MUSIC]
+        self._synced_recent: tuple[tuple[int, int], ...] = ()
 
     # State ------------------------------------------------------------ #
     @property
@@ -110,6 +116,26 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
         if bright is None:
             return None
         return max(1, round(int(bright) * 255 / 100))
+
+    @callback
+    def _handle_coordinator_update(self) -> None:
+        self._sync_favorite_colors()
+        super()._handle_coordinator_update()
+
+    @callback
+    def _sync_favorite_colors(self) -> None:
+        """Show recently picked colours as the light dialog's favourite colours.
+
+        Replaces this light's favourites, but only once a colour has been picked.
+        """
+        recent = tuple(self._device.recent_colors)
+        entry = self.registry_entry
+        if not recent or recent == self._synced_recent or entry is None:
+            return
+        self._synced_recent = recent
+        options = dict(entry.options.get(LIGHT_DOMAIN, {}))
+        options["favorite_colors"] = [{"hs_color": [hue, sat]} for hue, sat in recent]
+        er.async_get(self.hass).async_update_entity_options(self.entity_id, LIGHT_DOMAIN, options)
 
     @property
     def color_mode(self) -> ColorMode:
