@@ -1,144 +1,162 @@
-# Yeelight Fluid BLE protocol (app 1.8.0)
+# Yeelight Fluid BLE protocol
 
-Recovered statically from `com.yeelight.yeelight_fluid` 1.8.0 (blutter output, Dart 3.11.5, unobfuscated).
-Applies to Yeelight BLE products in the app (Christmas String Lights yeePid 16787460, Aurora Eave,
-strips, curtain lights). Items marked **VERIFY** still need confirmation on real hardware.
+Local Bluetooth LE protocol used by Yeelight "Fluid" BLE products (Christmas String Lights,
+strips, Aurora Eave, curtain lights). Verified on Christmas String Lights
+(`YLBT_CHRI_xxxx`, firmware 56, 200 LEDs) unless marked **VERIFY**.
 
-Jieli RCSP (`ae00/ae01/ae02`, channel `com.yeelight.jlBleOTA`) is used **only for OTA** — not control.
-
-## 0. Hardware-verified (2026-11-15, YLBT_CHRI_xxxx, fw 56, strip_length 200)
-
-- Adv: company `0x0164`, 16 B: `04 28 | 01 01 07 00 | <mac_le 6> | 01 00 00 00`
-  → productId `0x2804` little-endian at offset 0, MAC LE at offset 6. Service UUID `fe87` advertised.
-- MTU 512 on Windows.
-- Pair: response arrived ~20 s after request (`59 81 01 00 db`) — device-side confirmation window.
-- Replies set seq high bit (`0x80 | seq`).
-- ReadKey → 12-byte key. AuthKey with productId **big-endian** in nonce → reply data = MAC LE (6 B). AuthSuccess → empty reply.
-- On connect device pushes full `props`: `fx_effect, mic_music_mode, save_state, init_power_opt,
-  fw_version, strip_length, color_mode, bright, hue, sat, rgb, power, pair_succed`.
-- `get_prop [...]` → `{"id":n,"result":[...strings]}`; `set_power ["on","smooth",500]`, `set_bright [30,"smooth",500]` → `["ok"]` + `props` push.
-
-- **Auth not enforced on fw 56:** with no auth, `set_bright` still → `["ok"]` + props push. Only difference
-  seen: no full `props` dump on connect. Integration authenticates when key stored, works without it otherwise.
-- AuthKey with productId little-endian in nonce → **no reply** (device verifies CCM). Big-endian confirmed.
+The Jieli service (`ae00` / `ae01` / `ae02`) is used only for firmware updates, not for control.
 
 ## 1. Discovery
 
-- Local name prefix: `YLBT_CHRI` (Christmas lights, from `device_configs/16787460.json`).
-- Manufacturer data company ID `0xFE87` (alt `0x0164`), parsed by `BeaconData.fromBytes`
-  (payload length 11 or 17 bytes; contains little-endian MAC and product id). **VERIFY offsets.**
-- yeePid = `0x01000000 + productId` → Christmas lights productId = `0x2804` (10244). **VERIFY.**
+- Local name prefix: `YLBT_` (Christmas lights: `YLBT_CHRI`).
+- Advertised service UUID `fe87`.
+- Manufacturer data, company ID `0x0164`, 16 bytes:
+
+  ```
+  offset 0   product_id (uint16 LE)      e.g. 04 28 -> 0x2804
+  offset 2   4 bytes, unknown            e.g. 01 01 07 00
+  offset 6   MAC address, little-endian (6 bytes)
+  offset 12  4 bytes, unknown            e.g. 01 00 00 00
+  ```
+
+- Product model id = `0x01000000 + product_id` (Christmas lights: `0x2804` -> `16787460`).
 
 ## 2. GATT
 
-| Purpose | Service | Characteristic | Notes |
+16-bit UUIDs on base `0000xxxx-0000-1000-8000-00805f9b34fb`.
+
+| Purpose | Service | Characteristic | Properties |
 |---|---|---|---|
 | Auth write | `fe87` | `fe88` | write |
 | Auth notify | `fe87` | `fe89` | notify |
-| Control write | `ae3a` | `ae3b` | JSON-RPC, write |
-| Control notify | `ae3a` | `ae3c` | JSON-RPC responses / props |
-| XModem data | `ae3a` | `ae3d` | optional (effect/file upload) |
-| XModem notify | `ae3a` | `ae3e` | optional |
+| Control write | `ae3a` | `ae3b` | write |
+| Control notify | `ae3a` | `ae3c` | notify |
+| Bulk data write | `ae3a` | `ae3d` | write (XModem, optional) |
+| Bulk data notify | `ae3a` | `ae3e` | notify (optional) |
 
-16-bit UUIDs, base `0000xxxx-0000-1000-8000-00805f9b34fb`.
-Source: `YeeBleAuthController::_initCharacteristic`, `YeeBleController::_initCharacteristic`.
+MTU negotiates to 512 where supported; writes are chunked to `MTU - 3`.
 
-## 3. Auth (required after connect, before control)
+## 3. Authentication (`fe88` / `fe89`)
 
-### 3.1 Frame (`BleAuthCmd::buildPacket`, `YeeBleAuthResponseHandler::_parsePacket`)
+### 3.1 Frame
 
 ```
 0x59 | seq | cmd | len | data[len] | checksum
 checksum = sum(all previous bytes) & 0xFF
 ```
 
-Responses use same frame ("Invalid packet head" / "Checksum error" on mismatch); parsed into `{seq, cmd, data}`.
+Responses use the same frame with `seq | 0x80`.
 
 ### 3.2 Commands
 
-| Class | seq | cmd | data |
-|---|---|---|---|
-| `BleAuthCmdPair` | 1 | 1 | none |
-| `BleAuthCmdReadKey` | 2 | 2 | none → response data = device key (12 bytes) |
-| `BleAuthCmdAuthKey` | 3 | 3 | `encryptData(...)` (10 bytes) |
-| `BleAuthCmdAuthSuccess` | 4 | 4 | none |
+| Name | seq | cmd | Request data | Response data |
+|---|---|---|---|---|
+| Pair | 1 | 1 | — | — (arrives after ~20 s confirmation window) |
+| ReadKey | 2 | 2 | — | 12-byte device key |
+| AuthKey | 3 | 3 | 10-byte token (§3.3) | device MAC, little-endian (6 bytes) |
+| AuthSuccess | 4 | 4 | — | — |
 
-- **Pairing (first time, app pairing pages):** Pair → wait for auth response (timeout, likely user
-  confirmation on device — **VERIFY**) → ReadKey → store key as `bleEncryptKey` (hex) → AuthKey → AuthSuccess.
-- **Every reconnect (`YeeBleController.connectIfNeeded` → `YeeBleAuthController.auth`):**
-  AuthKey → AuthSuccess, using stored `bleEncryptKey`, `macAddress`, `productId`
-  (from `DevicePersistentInfo`). No cloud involved.
+- **First pairing:** Pair -> ReadKey (store key) -> AuthKey -> AuthSuccess.
+- **Reconnect:** AuthKey -> AuthSuccess with the stored key.
+- A wrong token gets no reply.
+- **Firmware 56 does not enforce auth:** control commands work without it. The only difference
+  observed is that the full `props` dump on connect is sent only after auth.
 
-### 3.3 `encryptData(mac, key12, productId)` (`ble_utils.dart`)
-
-```
-mac_le   = reversed(bytes.fromhex(mac.replace(":", "")))         # 6 bytes
-aes_key  = key12 + 04 03 02 01                                    # 16 bytes
-nonce    = mac_le + productId.to_bytes(2, "big") + 52 27 61 98    # 12 bytes
-aad      = 87 fe
-out      = AES-CCM(aes_key, nonce, tag_len=4).encrypt(plaintext=mac_le, aad)   # 6 ct + 4 tag
-```
-
-**VERIFY:** byte order of productId in nonce (code swaps bytes then stores 16-bit LE → big-endian).
-
-## 4. Control: JSON-RPC over `ae3b`/`ae3c`
-
-`YeeBleController::writeData`:
+### 3.3 AuthKey token
 
 ```
-payload = json.dumps({"id": n, "method": m, "params": [...]}) + "\r\n"   # UTF-8
+mac_le  = MAC bytes, reversed                                  # 6 bytes
+aes_key = key12 + 04 03 02 01                                  # 16 bytes
+nonce   = mac_le + product_id.to_bytes(2, "big") + 52 27 61 98 # 12 bytes
+aad     = 87 fe
+token   = AES-CCM(aes_key, nonce, tag_len=4).encrypt(mac_le, aad)   # 6 ct + 4 tag
 ```
 
-- Split into MTU-sized chunks (`SplitWrite.splitWrite`).
-- Group/master writes prepend target MAC (little-endian) — not needed for single device.
-- Device notifications are JSON (`method` / `props` / `params`); error code `"201"` = stop writing, reset.
+## 4. Control: JSON-RPC (`ae3b` / `ae3c`)
 
-### 4.1 Attribute → method (`attr_cmd_converter.dart`)
+### 4.1 Framing
 
-| Path (ep / cluster / attr) | Read | Write |
+Request (UTF-8, one line):
+
+```
+{"id": n, "method": "<method>", "params": [...]}\r\n
+```
+
+- Reply: `{"id": n, "result": [...]}` (usually `["ok"]`).
+- Push: `{"method": "props", "params": {...}}` after every state change.
+- Error code `"201"`: stop writing and reset.
+- Notifications may be split across packets; reassemble on `\n`.
+
+### 4.2 Properties
+
+After auth the device pushes all properties:
+
+| Property | Notes |
+|---|---|
+| `power` | `"on"` / `"off"` |
+| `bright` | 1–100 |
+| `color_mode` | `2` = colour temperature, `3` = HSV, `14` = effect / music |
+| `hue`, `sat`, `rgb` | HSV mode |
+| `ct` | CT mode |
+| `fx_effect` | JSON string `{"effect_id": n, "custom_id": n}` |
+| `mic_music_mode` | JSON string `{"on": 0\|1, "effect_id": n, ...}` |
+| `fw_version` | e.g. `56` |
+| `strip_length` | number of LEDs, e.g. `200` |
+| `save_state`, `init_power_opt`, `pair_succed` | config flags |
+
+`get_prop ["power", "bright", ...]` returns values as strings in request order.
+
+### 4.3 Methods
+
+| Method | Params | Notes |
 |---|---|---|
-| 1 / 0x0006 / 0 OnOff | `get_prop ["power"]` | `set_power ["on"\|"off", "smooth", ms]` |
-| 1 / 0x0008 / 0 Level | `get_prop ["bright"]` | `set_bright` |
-| 1 / 0x0300 / 0,1 Hue, Sat | `get_prop ["hue"\|"sat"]` | `set_hsv` |
-| 1 / 0x0300 / 7 CT | `get_prop ["ct"]` | `set_ct_abx` |
-| 0xFC00 / 1,2 YeeBasic | `get_ver` | — |
-| 1 / 0xFC00 / 0 power-on state | `get_prop ["init_power_opt"]` | `set_ps ["cfg_init_power", ...]` |
-| 2 / 0xFC01 / 0 | `get_prop ["len_configured"]` | — |
-| 2 / 0xFC04 / 0 strip length | `get_prop` | `set_ps` |
-| 2 / 0xFC05 / 0,1 effect config V2 | `get_fx_effect` | `set_fx_effect` / `update_fx_effect` |
-| 2 / 0xFC06 / 0 | `lighting_mode`, `mic_music_mode` via `get_prop` | `set_ps` |
+| `set_power` | `["on"\|"off", "smooth", ms]` | |
+| `set_bright` | `[1-100, "smooth", ms]` | |
+| `set_hsv` | `[hue 0-359, sat 0-100, "smooth", ms]` | sets `color_mode 3` |
+| `set_ct_abx` | `[kelvin, "smooth", ms]` | sets `color_mode 2`; range 2700–6500 **VERIFY** |
+| `get_prop` | `[name, ...]` | |
+| `get_ver` | `[]` | returns `[fw_version]` |
+| `set_fx_effect` | `[effect_id, 0, apply(1), {segcfg}]` | sets `color_mode 14` |
+| `update_fx_effect` | `[{segcfg}]` | change running effect (rate / direction / mixer / data) |
+| `get_fx_effect` | `[]` | `[effect_id, custom_id, {segcfg}]` |
+| `set_ps` | `["mic_music_mode", "<json>"]` | music mode, see §4.5 |
+| `set_ps` | `["cfg_init_power", ...]` | power-on behaviour, format **VERIFY** |
 
-### 4.2 Write methods (`write_cmd_converter.dart`)
+Seen but not yet characterised: `set_scene`, `reset_fx_effect`, `get/update_persist_effect_list`,
+`get/set_multi_connection_state`, `set_multi_connection`, `select_dev`, `req_ota`.
 
-`set_power, set_bright, set_hsv, set_ct_abx, set_scene, set_ps, set_fx_effect, update_fx_effect,
-get_fx_effect, reset_fx_effect` (keys: `effect_id, rate, color, direction, intensity, onoff, mixer,
-data, palatte`), `update_persist_effect_list / get_persist_effect_list` (`effect_id, custom_id,
-effect_params`), `req_ota`, `get/set_multi_connection_state`, `set_multi_connection`, `select_dev`.
+### 4.4 Segment config (`segcfg`)
 
-Hardware-verified 2026-11-15 (all → `["ok"]`):
+| Key | Type | Notes |
+|---|---|---|
+| `rate` | int | effect speed, 1–100 **VERIFY** direction of scale |
+| `color` | int[] | ARGB, e.g. `0xFFFF0000` = red; device returns signed int32 |
+| `direction` | int | `0` / `1` for directional effects (`0` = up **VERIFY**) |
+| `intensity` | int | default 128 |
+| `start`, `end` | int | LED range, default `0`–`strip_length` |
+| `onoff`, `mode`, `mixer` | int | |
+| `data` | string | base64 custom data |
 
-- `set_fx_effect [81,0,1,{"rate":50}]` → props `fx_effect {"effect_id":81,"custom_id":0}`, `color_mode 14`.
-- `set_fx_effect [47,0,1,{"rate":50,"color":[0xFFFF0000],"direction":1}]` → effect 47.
-- `update_fx_effect [{"rate":90}]` ok. `get_fx_effect` → `[effect_id, custom_id, {onoff, mode, mixer,
-  intensity(128), rate, start(0), end(200), direction, color[signed int32 ARGB]}]`.
-- `set_hsv [120,100,"smooth",500]` → `color_mode 3, hue, sat, rgb`. `set_ct_abx [2700,"smooth",500]` → `color_mode 2, ct`.
-- `set_ps ["mic_music_mode","{\"on\":1,\"effect_id\":0}"]` → `fx_effect 44/44`, `color_mode 14`; `on:0` restores previous effect.
-- `color_mode`: 2 = CT, 3 = HSV, 14 = effect / music.
-
-From asm (`SetPresetEffectCmd`, `SegmentxCfg::toYeeSpec`, `SetMicMusicModeCmd`):
+Examples:
 
 ```
-set_fx_effect    [effect_id, 0, apply, {segcfg}]
-update_fx_effect [{segcfg}]                      # rate / direction / mixer / data only
-segcfg keys: onoff, mode, mixer, intensity, rate, color[ARGB ints], start, end (pair), direction, data (base64)
-set_ps ["mic_music_mode", "{\"on\":0|1,\"effect_id\":n,\"palatte\":[...]}"]
-set_power ["on"|"off", "smooth", 1000];  set_hsv [h, s, "smooth", ms];  set_ct_abx [ct, "smooth", ms]
-set_scene ["bright", ...]   # level-with-onoff
+set_fx_effect [81, 0, 1, {"rate": 50}]
+set_fx_effect [47, 0, 1, {"rate": 50, "color": [4294901760], "direction": 1}]
+update_fx_effect [{"rate": 90}]
 ```
 
-**TODO:** remaining params order per method (esp. `set_fx_effect`), music flow (`mic_music_mode`,
-`ble_music_sync_controller.dart`).
+### 4.5 Music mode (microphone)
 
-## 5. Effects (Christmas lights)
+```
+set_ps ["mic_music_mode", "{\"on\":1,\"effect_id\":0}"]
+```
 
-23 effect modes in `device_configs/16787460.json`; app effect id 82 (Christmas) maps to firmware 81.
+- `on: 1` switches to music effect (`fx_effect` reports `44/44`, `color_mode 14`).
+- `on: 0` restores the previous effect.
+- Optional `palatte` key (sic) carries a colour list. Other `effect_id` values **VERIFY**.
+
+## 5. Christmas String Lights effects
+
+23 preset effects. Firmware ids differ from catalogue ids in one case: Christmas (82) is sent as 81.
+Warm glow (97), Snow white (98) and Candy cane (99) need firmware ≥ 52.
+Meteor (47) and Waves (42) support direction. Full list: `custom_components/yeelight_fluid_ble/const.py`.

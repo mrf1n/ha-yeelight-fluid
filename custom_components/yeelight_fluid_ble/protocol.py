@@ -1,6 +1,6 @@
 """Yeelight Fluid BLE protocol helpers (no Home Assistant dependencies).
 
-See docs/PROTOCOL.md for the reverse-engineered specification.
+See docs/PROTOCOL.md for the protocol specification.
 """
 
 from __future__ import annotations
