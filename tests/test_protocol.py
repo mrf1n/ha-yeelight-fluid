@@ -5,9 +5,11 @@ from custom_components.yeelight_lights_ble.protocol import (
     JsonLineParser,
     argb_to_rgb,
     build_auth_packet,
+    encode_music_mode,
     encode_request,
     encrypt_auth,
     mac_le,
+    music_palette,
     parse_manufacturer_data,
     rate_to_speed,
     rgb_to_argb,
@@ -82,3 +84,23 @@ def test_speed_rate_conversion() -> None:
     assert speed_to_rate(51) == 131
     assert speed_to_rate(100) == 255
     assert speed_to_rate(0) == 1
+
+
+def test_music_palette() -> None:
+    assert music_palette([0xFFFF0000]) == [0xFFFF0000] * 16
+    # two colours: 8 slots each, red -> blue then blue -> red
+    pal = music_palette([0xFFFF0000, 0xFF0000FF])
+    assert len(pal) == 16
+    assert pal[0] == 0xFFFF0000
+    assert pal[8] == 0xFF0000FF
+    assert pal[4] == 0xFF800080
+    # five colours: 16 = 4 + 3 + 3 + 3 + 3
+    pal = music_palette([1, 2, 3, 4, 5])
+    assert len(pal) == 16
+    assert [pal[0], pal[4], pal[7], pal[10], pal[13]] == [1, 2, 3, 4, 5]
+
+
+def test_music_mode_payload() -> None:
+    assert encode_music_mode(False) == '{"on":0}'
+    on = encode_music_mode(True, 84, [0xFFFF0000])
+    assert on.startswith('{"on":1,"effect_id":84,"palatte":[4294901760,')

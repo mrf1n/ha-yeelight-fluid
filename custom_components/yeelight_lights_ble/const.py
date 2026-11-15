@@ -98,7 +98,20 @@ PRODUCTS: Final[dict[int, ProductInfo]] = {
 # Pseudo effects
 EFFECT_MUSIC: Final = "Music"
 EFFECT_CUSTOM: Final = "Custom"
-MUSIC_EFFECT_ID: Final = 44
+# Microphone music styles -> firmware effect id (as sent by the official app)
+MUSIC_STYLES: Final = {
+    "breathing": 84,
+    "music_note": 87,
+    "impact": 88,
+    "blossom": 85,
+    "spectrum": 86,
+    "gather": 83,
+}
+DEFAULT_MUSIC_STYLE: Final = "breathing"
+# The app's default "happy" colour set (ARGB)
+DEFAULT_MUSIC_COLORS: Final = (0xFFEA047E, 0xFFFF8861, 0xFFFFE75F, 0xFF8DD852, 0xFF00F5FF)
+# effect ids the device reports while music mode runs
+MUSIC_EFFECT_IDS: Final = frozenset({44, *MUSIC_STYLES.values()})
 
 # color_mode values reported by the device
 COLOR_MODE_CT: Final = 2

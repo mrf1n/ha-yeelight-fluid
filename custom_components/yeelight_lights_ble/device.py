@@ -15,6 +15,7 @@ from bleak_retry_connector import (
     establish_connection,
 )
 
+from .const import DEFAULT_MUSIC_COLORS, DEFAULT_MUSIC_STYLE, MUSIC_STYLES
 from .protocol import (
     AUTH_NOTIFY,
     AUTH_WRITE,
@@ -28,6 +29,7 @@ from .protocol import (
     AuthFrameParser,
     JsonLineParser,
     build_auth_packet,
+    encode_music_mode,
     encode_request,
     encrypt_auth,
     mac_le,
@@ -461,7 +463,20 @@ class YeelightBleDevice:
         await self.request("set_ps", ["cfg_init_power", value])
         self._apply_props({"init_power_opt": value})
 
-    async def set_music_mode(self, on: bool, effect_id: int = 0) -> None:
-        value = f'{{"on":{1 if on else 0},"effect_id":{effect_id}}}'
+    async def set_music_mode(
+        self,
+        on: bool,
+        style: str = DEFAULT_MUSIC_STYLE,
+        colors: tuple[int, ...] | list[int] = DEFAULT_MUSIC_COLORS,
+    ) -> None:
+        """Start or stop microphone music mode.
+
+        Starting needs a real music effect id and a palette; the firmware hangs
+        when it gets "effect_id": 0. Stopping sends only {"on": 0}, like the app.
+        """
+        if on:
+            value = encode_music_mode(True, MUSIC_STYLES[style], colors)
+        else:
+            value = encode_music_mode(False)
         await self.request("set_ps", ["mic_music_mode", value])
         self._apply_props({"mic_music_mode": value})

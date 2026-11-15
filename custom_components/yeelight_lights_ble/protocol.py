@@ -186,6 +186,50 @@ def speed_to_rate(speed: float) -> int:
     return max(RATE_MIN, min(RATE_MAX, math.ceil(speed * _RATE_PER_PERCENT)))
 
 
+MUSIC_PALETTE_SIZE = 16
+
+
+def _lerp_argb(a: int, b: int, t: float) -> int:
+    out = 0
+    for shift in (24, 16, 8, 0):
+        ca = (a >> shift) & 0xFF
+        cb = (b >> shift) & 0xFF
+        out |= (round(ca + (cb - ca) * t) & 0xFF) << shift
+    return out
+
+
+def music_palette(colors: list[int] | tuple[int, ...]) -> list[int]:
+    """Spread ARGB colours over the 16-entry music palette, as the app does.
+
+    One colour is repeated; several colours become a looping gradient, each
+    colour fading into the next one over an equal share of the 16 slots.
+    """
+    if not colors:
+        raise ValueError("at least one colour is required")
+    count = len(colors)
+    if count == 1:
+        return [colors[0] & 0xFFFFFFFF] * MUSIC_PALETTE_SIZE
+    base, extra = divmod(MUSIC_PALETTE_SIZE, count)
+    out: list[int] = []
+    for i, start in enumerate(colors):
+        end = colors[(i + 1) % count]
+        steps = base + (1 if i < extra else 0)
+        out.extend(_lerp_argb(start, end, j / steps) for j in range(steps))
+    return out
+
+
+def encode_music_mode(
+    on: bool, effect_id: int | None = None, colors: list[int] | tuple[int, ...] | None = None
+) -> str:
+    """Value for set_ps ["mic_music_mode", ...]: compact JSON string."""
+    payload: dict[str, Any] = {"on": 1 if on else 0}
+    if effect_id is not None:
+        payload["effect_id"] = effect_id
+    if colors:
+        payload["palatte"] = music_palette(colors)  # sic, firmware spelling
+    return json.dumps(payload, separators=(",", ":"))
+
+
 def argb_to_rgb(value: int) -> tuple[int, int, int]:
     """Signed/unsigned ARGB int to RGB tuple."""
     value &= 0xFFFFFFFF

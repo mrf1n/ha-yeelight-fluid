@@ -28,7 +28,7 @@ from .const import (
     DIRECTIONS,
     EFFECT_CUSTOM,
     EFFECT_MUSIC,
-    MUSIC_EFFECT_ID,
+    MUSIC_EFFECT_IDS,
     SPEED_MAX,
     SPEED_MIN,
     TRANSITION_MS,
@@ -125,7 +125,7 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             return EFFECT_MUSIC
         if device.state.get("color_mode") != COLOR_MODE_EFFECT:
             return None
-        if device.effect_id == MUSIC_EFFECT_ID:
+        if device.effect_id in MUSIC_EFFECT_IDS:
             return EFFECT_MUSIC
         if device.effect_id:
             mode = self._catalog.by_firmware_id(device.effect_id)

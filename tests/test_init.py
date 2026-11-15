@@ -6,8 +6,14 @@ from unittest.mock import AsyncMock, patch
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.yeelight_lights_ble.const import CONF_KEY, CONF_PRODUCT_ID, DOMAIN
+from custom_components.yeelight_lights_ble.const import (
+    CONF_KEY,
+    CONF_PRODUCT_ID,
+    DEFAULT_MUSIC_COLORS,
+    DOMAIN,
+)
 from custom_components.yeelight_lights_ble.device import YeelightBleDevice
+from custom_components.yeelight_lights_ble.protocol import encode_music_mode
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
@@ -115,7 +121,9 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             {"entity_id": "switch.ylbt_chri_eeff_music_mode"},
             blocking=True,
         )
-        request.assert_awaited_with("set_ps", ["mic_music_mode", '{"on":1,"effect_id":0}'])
+        request.assert_awaited_with(
+            "set_ps", ["mic_music_mode", encode_music_mode(True, 84, DEFAULT_MUSIC_COLORS)]
+        )
         assert hass.states.get("light.ylbt_chri_eeff_light").attributes["effect"] == "Music"
 
         assert await hass.config_entries.async_unload(entry.entry_id)

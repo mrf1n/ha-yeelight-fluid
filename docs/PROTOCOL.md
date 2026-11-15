@@ -149,12 +149,17 @@ update_fx_effect [{"rate": 90}]
 ### 4.5 Music mode (microphone)
 
 ```
-set_ps ["mic_music_mode", "{\"on\":1,\"effect_id\":0}"]
+set_ps ["mic_music_mode", "{\"on\":1,\"effect_id\":84,\"palatte\":[<16 ARGB ints>]}"]
+set_ps ["mic_music_mode", "{\"on\":0}"]
 ```
 
-- `on: 1` switches to music effect (`fx_effect` reports `44/44`, `color_mode 14`).
-- `on: 0` restores the previous effect.
-- Optional `palatte` key (sic) carries a colour list. Other `effect_id` values **VERIFY**.
+- Turning on needs a music `effect_id` and a 16-colour `palatte` (sic).
+  **`"effect_id": 0` hangs the firmware**; only a power cycle recovers it.
+- Music styles / effect ids: breathing 84, music note 87, impact 88, blossom 85, spectrum 86, gather 83.
+- `palatte`: 16 ARGB ints. One colour is repeated 16 times; with N colours each colour fades
+  linearly into the next (wrapping to the first), over 16 / N slots, the first 16 mod N colours getting one extra slot.
+  Default colour set ("happy"): `FFEA047E FFFF8861 FFFFE75F FF8DD852 FF00F5FF`.
+- Turning off sends only `on: 0`; the device restores the previous effect.
 
 ## 5. Christmas String Lights effects
 
