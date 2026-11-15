@@ -233,6 +233,7 @@ class YeelightBleDevice:
         except (BleakError, TimeoutError) as err:
             raise YeelightBleConnectionError(f"Failed to connect: {err}") from err
         self._client = client
+        await self._acquire_mtu(client)
         self._auth_parser = AuthFrameParser()
         self._json_parser = JsonLineParser()
         self._auth_queue = asyncio.Queue()
@@ -247,6 +248,23 @@ class YeelightBleDevice:
             raise YeelightBleConnectionError(f"Setup failed: {err}") from err
         _LOGGER.debug("%s: connected (auth=%s)", self.name, self.authenticated)
         self._reset_idle_timer()
+
+    async def _acquire_mtu(self, client: BleakClientWithServiceCache) -> None:
+        """Learn the real ATT MTU so each request goes out in one write.
+
+        On BlueZ, bleak reports the default MTU (23) until asked, which made us
+        split every command into 20-byte writes. While off, the lights leave a
+        split command unprocessed until more data arrives (often minutes
+        later). The app sends each command as a single write.
+        """
+        backend = getattr(client, "_backend", None)
+        acquire = getattr(backend, "_acquire_mtu", None)
+        if acquire is not None:
+            try:
+                await acquire()
+            except Exception as err:  # noqa: BLE001 - best effort, older stacks lack it
+                _LOGGER.debug("%s: could not read MTU: %s", self.name, err)
+        _LOGGER.debug("%s: MTU %s", self.name, client.mtu_size)
 
     async def disconnect(self) -> None:
         """Disconnect on request (unload)."""
