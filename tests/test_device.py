@@ -9,6 +9,7 @@ from bleak.backends.device import BLEDevice
 import pytest
 
 from custom_components.yeelight_lights_ble.device import (
+    YeelightBleConnectionError,
     YeelightBleDevice,
     YeelightBleError,
     YeelightBleTimeout,
@@ -44,6 +45,7 @@ async def test_timeout_reconnects_and_retries_once() -> None:
     with (
         patch.object(device, "_request_once", once),
         patch.object(device, "_disconnect", AsyncMock()) as disconnect,
+        patch("custom_components.yeelight_lights_ble.device.RECONNECT_DELAY", 0),
     ):
         assert await device.request("set_power", ["on", "smooth", 500]) == ["ok"]
     assert once.await_count == 2
@@ -56,7 +58,43 @@ async def test_second_timeout_is_reported() -> None:
     with (
         patch.object(device, "_request_once", once),
         patch.object(device, "_disconnect", AsyncMock()),
+        patch("custom_components.yeelight_lights_ble.device.RECONNECT_DELAY", 0),
         pytest.raises(YeelightBleError, match="Timeout waiting for set_power"),
     ):
         await device.request("set_power", ["on", "smooth", 500])
     assert once.await_count == 2
+
+
+async def test_dropped_link_is_retried() -> None:
+    device = _device()
+    once = AsyncMock(
+        side_effect=[YeelightBleConnectionError("Setup failed: Not Connected"), ["ok"]]
+    )
+    with (
+        patch.object(device, "_request_once", once),
+        patch.object(device, "_disconnect", AsyncMock()),
+        patch("custom_components.yeelight_lights_ble.device.RECONNECT_DELAY", 0),
+    ):
+        assert await device.request("get_prop", ["power"]) == ["ok"]
+    assert once.await_count == 2
+
+
+async def test_turn_on_falls_back_to_set_scene() -> None:
+    """While off the lights may ignore set_power; brightness turns them on."""
+    device = _device()
+    device.state["bright"] = 40
+    calls = []
+
+    async def fake_request(method, params=None, confirm=None, retry=True):
+        calls.append((method, params, retry))
+        if method == "set_power":
+            raise YeelightBleTimeout("Timeout waiting for set_power")
+        return ["ok"]
+
+    with patch.object(device, "request", side_effect=fake_request):
+        await device.turn_on()
+    assert calls == [
+        ("set_power", ["on", "smooth", 500], False),
+        ("set_scene", ["bright", 40, 0], True),
+    ]
+    assert device.state["power"] == "on"

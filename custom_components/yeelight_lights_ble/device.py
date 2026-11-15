@@ -48,6 +48,10 @@ from .protocol import (
 _LOGGER = logging.getLogger(__name__)
 
 REQUEST_TIMEOUT = 5.0
+# the lights drop Bluetooth links (notably while off) and may refuse a new one
+# right after; retry the whole connect + setup with a short pause between tries
+CONNECT_ATTEMPTS = 3
+RECONNECT_DELAY = 1.5
 AUTH_TIMEOUT = 5.0
 PAIR_TIMEOUT = 60.0
 RECONNECT_DELAYS = (2, 5, 10, 30, 60)
@@ -86,6 +90,10 @@ class YeelightBleError(Exception):
 
 class YeelightBleTimeout(YeelightBleError):
     """No answer to a request in time."""
+
+
+class YeelightBleConnectionError(YeelightBleError):
+    """The Bluetooth link failed or dropped; worth retrying on a fresh link."""
 
 
 class YeelightBleAuthError(YeelightBleError):
@@ -192,39 +200,53 @@ class YeelightBleDevice:
     # Connection
     # ------------------------------------------------------------------ #
     async def connect(self) -> None:
-        """Connect and authenticate if needed."""
+        """Connect and authenticate if needed, retrying dropped links."""
         if self.connected:
             self._reset_idle_timer()
             return
         async with self._connect_lock:
-            if self.connected:
-                return
-            _LOGGER.debug("%s: connecting", self.name)
-            try:
-                client = await establish_connection(
-                    BleakClientWithServiceCache,
-                    self._ble_device,
-                    self.name,
-                    disconnected_callback=self._on_disconnected,
-                    max_attempts=3,
-                )
-            except (BleakError, TimeoutError) as err:
-                raise YeelightBleError(f"Failed to connect: {err}") from err
-            self._client = client
-            self._auth_parser = AuthFrameParser()
-            self._json_parser = JsonLineParser()
-            self._auth_queue = asyncio.Queue()
-            try:
-                await client.start_notify(CTRL_NOTIFY, self._on_ctrl_notify)
-                await client.start_notify(AUTH_NOTIFY, self._on_auth_notify)
-                self.authenticated = False
-                if self.key:
-                    await self._authenticate()
-            except (BleakError, TimeoutError) as err:
-                await self._disconnect()
-                raise YeelightBleError(f"Setup failed: {err}") from err
-            _LOGGER.debug("%s: connected (auth=%s)", self.name, self.authenticated)
-            self._reset_idle_timer()
+            for attempt in range(1, CONNECT_ATTEMPTS + 1):
+                if self.connected:
+                    return
+                try:
+                    await self._connect_once()
+                    return
+                except YeelightBleConnectionError as err:
+                    if attempt == CONNECT_ATTEMPTS:
+                        raise
+                    _LOGGER.debug(
+                        "%s: connect attempt %s failed (%s), retrying", self.name, attempt, err
+                    )
+                    await asyncio.sleep(RECONNECT_DELAY)
+
+    async def _connect_once(self) -> None:
+        """One connect + notify + auth attempt (caller holds the connect lock)."""
+        _LOGGER.debug("%s: connecting", self.name)
+        try:
+            client = await establish_connection(
+                BleakClientWithServiceCache,
+                self._ble_device,
+                self.name,
+                disconnected_callback=self._on_disconnected,
+                max_attempts=3,
+            )
+        except (BleakError, TimeoutError) as err:
+            raise YeelightBleConnectionError(f"Failed to connect: {err}") from err
+        self._client = client
+        self._auth_parser = AuthFrameParser()
+        self._json_parser = JsonLineParser()
+        self._auth_queue = asyncio.Queue()
+        try:
+            await client.start_notify(CTRL_NOTIFY, self._on_ctrl_notify)
+            await client.start_notify(AUTH_NOTIFY, self._on_auth_notify)
+            self.authenticated = False
+            if self.key:
+                await self._authenticate()
+        except (BleakError, TimeoutError) as err:
+            await self._disconnect()
+            raise YeelightBleConnectionError(f"Setup failed: {err}") from err
+        _LOGGER.debug("%s: connected (auth=%s)", self.name, self.authenticated)
+        self._reset_idle_timer()
 
     async def disconnect(self) -> None:
         """Disconnect on request (unload)."""
@@ -238,7 +260,7 @@ class YeelightBleDevice:
         self._cancel_idle_timer()
         client, self._client = self._client, None
         self.authenticated = False
-        self._fail_pending(YeelightBleError("Disconnected"))
+        self._fail_pending(YeelightBleConnectionError("Disconnected"))
         if client is not None:
             with contextlib.suppress(BleakError, TimeoutError):
                 await client.disconnect()
@@ -247,7 +269,7 @@ class YeelightBleDevice:
         _LOGGER.debug("%s: disconnected", self.name)
         self._client = None
         self.authenticated = False
-        self._fail_pending(YeelightBleError("Disconnected"))
+        self._fail_pending(YeelightBleConnectionError("Disconnected"))
         self._notify_listeners()
         if self.keep_connected and not self._closing:
             self._schedule_reconnect()
@@ -324,6 +346,8 @@ class YeelightBleDevice:
                     if frame.cmd == cmd:
                         return frame
         except TimeoutError as err:
+            if not self.connected:
+                raise YeelightBleConnectionError(f"Link dropped during auth cmd {cmd}") from err
             raise YeelightBleAuthError(f"No response to auth cmd {cmd}") from err
 
     async def _authenticate(self) -> None:
@@ -410,6 +434,7 @@ class YeelightBleDevice:
         method: str,
         params: list[Any] | None = None,
         confirm: dict[str, Any] | None = None,
+        retry: bool = True,
     ) -> Any:
         """Send a JSON-RPC request and wait for its result.
 
@@ -420,9 +445,12 @@ class YeelightBleDevice:
         """
         try:
             return await self._request_once(method, params, confirm)
-        except YeelightBleTimeout:
-            _LOGGER.debug("%s: %s timed out, reconnecting and retrying", self.name, method)
+        except (YeelightBleTimeout, YeelightBleConnectionError) as err:
+            if not retry:
+                raise
+            _LOGGER.debug("%s: %s failed (%s), reconnecting and retrying", self.name, method, err)
             await self._disconnect()
+            await asyncio.sleep(RECONNECT_DELAY)
             return await self._request_once(method, params, confirm)
 
     async def _request_once(
@@ -450,7 +478,7 @@ class YeelightBleDevice:
         except TimeoutError as err:
             raise YeelightBleTimeout(f"Timeout waiting for {method}") from err
         except BleakError as err:
-            raise YeelightBleError(f"Write failed: {err}") from err
+            raise YeelightBleConnectionError(f"Write failed: {err}") from err
         finally:
             self._pending.pop(msg_id, None)
             self._confirm.pop(msg_id, None)
@@ -476,7 +504,32 @@ class YeelightBleDevice:
 
     # Commands ------------------------------------------------------------ #
     async def turn_on(self, transition_ms: int = 500) -> None:
-        await self.request("set_power", ["on", "smooth", transition_ms], confirm={"power": "on"})
+        """Turn on.
+
+        While off, the lights sometimes ignore set_power but still turn on
+        for other commands. So if set_power gets no answer, turn on with the
+        brightness command (set_scene), which the app also uses.
+        """
+        try:
+            await self.request(
+                "set_power",
+                ["on", "smooth", transition_ms],
+                confirm={"power": "on"},
+                retry=False,
+            )
+        except YeelightBleTimeout:
+            _LOGGER.debug("%s: set_power on got no answer, turning on via set_scene", self.name)
+            bright = self.state.get("bright")
+            try:
+                bright = max(1, min(100, int(bright)))
+            except (TypeError, ValueError):
+                bright = 100
+            await self.request("set_scene", ["bright", bright, 0], confirm={"power": "on"})
+        except YeelightBleConnectionError:
+            # link dropped: fresh connection, then the normal (retrying) path
+            await self.request(
+                "set_power", ["on", "smooth", transition_ms], confirm={"power": "on"}
+            )
         self._apply_props({"power": "on"})
 
     async def turn_off(self, transition_ms: int = 500) -> None:
