@@ -47,6 +47,11 @@
     }
   },
   "entity": {
+    "light": {
+      "light": {
+        "name": "Light"
+      }
+    },
     "number": {
       "effect_speed": {
         "name": "Effect speed"
@@ -87,6 +92,77 @@
           "up": "Up",
           "down": "Down"
         }
+      },
+      "power_on_behavior": {
+        "name": "Default state after power on",
+        "state": {
+          "on": "Default light on",
+          "off": "Default light off",
+          "restore": "Restore to the state before power off"
+        }
+      },
+      "music_effect": {
+        "name": "Music rhythm effect",
+        "state": {
+          "breath": "Breath",
+          "shine": "Shine",
+          "spectrum": "Spectrum",
+          "converge": "Converge"
+        }
+      },
+      "music_scheme": {
+        "name": "Music colour scheme",
+        "state": {
+          "happy": "Mood: Happy",
+          "surprised": "Mood: Surprised",
+          "excited": "Mood: Excited",
+          "romantic": "Mood: Romantic",
+          "relaxed": "Mood: Relaxed",
+          "joyful": "Mood: Joyful",
+          "warm": "Mood: Warm",
+          "calm": "Mood: Calm",
+          "tranquil": "Mood: Tranquil",
+          "tropical_island": "Landscape: Tropical Island",
+          "purple_jungle": "Landscape: Purple Jungle",
+          "sunset_desert": "Landscape: Sunset Desert",
+          "tropical_rainforest": "Landscape: Tropical Rainforest",
+          "heart_of_ocean": "Landscape: Heart of the Ocean",
+          "violet_seas": "Landscape: Violet Seas",
+          "blue_glacier": "Landscape: Blue Glacier",
+          "sunrise_sea": "Landscape: Sunrise Sea",
+          "green_meadow": "Landscape: Green Meadow",
+          "golden_forest": "Landscape: Golden Forest",
+          "blue_mountains": "Landscape: Blue Mountains",
+          "pink_garden": "Landscape: Pink Garden",
+          "volcano_cave": "Landscape: Volcano Cave",
+          "golden_leaves": "Landscape: Golden Leaves",
+          "sunset_lake": "Landscape: Sunset Lake",
+          "classical": "Music: Classical",
+          "pop": "Music: Pop",
+          "rock": "Music: Rock",
+          "electronic": "Music: Electronic",
+          "antique": "Music: Antique",
+          "rap": "Music: Rap",
+          "jazz": "Music: Jazz",
+          "country": "Music: Country",
+          "metal": "Music: Metal",
+          "alternative": "Music: Alternative",
+          "new_year": "Holiday: New Year",
+          "valentine": "Holiday: Valentine's Day",
+          "carnival": "Holiday: Carnival",
+          "april_fool": "Holiday: April Fool's Day",
+          "mother": "Holiday: Mother's Day",
+          "father": "Holiday: Father's Day",
+          "children": "Holiday: Children's Day",
+          "halloween": "Holiday: Halloween",
+          "world_cup": "Holiday: World Cup",
+          "thanksgiving": "Holiday: Thanksgiving",
+          "christmas": "Holiday: Christmas",
+          "custom": "Custom"
+        }
+      },
+      "recent_colors": {
+        "name": "Recent colours"
       }
     },
     "switch": {
@@ -95,6 +171,9 @@
       }
     },
     "sensor": {
+      "rssi": {
+        "name": "Signal strength"
+      },
       "firmware": {
         "name": "Firmware"
       },
@@ -136,6 +215,72 @@
         "up": "Up",
         "down": "Down"
       }
+    },
+    "music_effect": {
+      "options": {
+        "breath": "Breath",
+        "shine": "Shine",
+        "spectrum": "Spectrum",
+        "converge": "Converge"
+      }
+    },
+    "music_scheme": {
+      "options": {
+        "happy": "Mood: Happy",
+        "surprised": "Mood: Surprised",
+        "excited": "Mood: Excited",
+        "romantic": "Mood: Romantic",
+        "relaxed": "Mood: Relaxed",
+        "joyful": "Mood: Joyful",
+        "warm": "Mood: Warm",
+        "calm": "Mood: Calm",
+        "tranquil": "Mood: Tranquil",
+        "tropical_island": "Landscape: Tropical Island",
+        "purple_jungle": "Landscape: Purple Jungle",
+        "sunset_desert": "Landscape: Sunset Desert",
+        "tropical_rainforest": "Landscape: Tropical Rainforest",
+        "heart_of_ocean": "Landscape: Heart of the Ocean",
+        "violet_seas": "Landscape: Violet Seas",
+        "blue_glacier": "Landscape: Blue Glacier",
+        "sunrise_sea": "Landscape: Sunrise Sea",
+        "green_meadow": "Landscape: Green Meadow",
+        "golden_forest": "Landscape: Golden Forest",
+        "blue_mountains": "Landscape: Blue Mountains",
+        "pink_garden": "Landscape: Pink Garden",
+        "volcano_cave": "Landscape: Volcano Cave",
+        "golden_leaves": "Landscape: Golden Leaves",
+        "sunset_lake": "Landscape: Sunset Lake",
+        "classical": "Music: Classical",
+        "pop": "Music: Pop",
+        "rock": "Music: Rock",
+        "electronic": "Music: Electronic",
+        "antique": "Music: Antique",
+        "rap": "Music: Rap",
+        "jazz": "Music: Jazz",
+        "country": "Music: Country",
+        "metal": "Music: Metal",
+        "alternative": "Music: Alternative",
+        "new_year": "Holiday: New Year",
+        "valentine": "Holiday: Valentine's Day",
+        "carnival": "Holiday: Carnival",
+        "april_fool": "Holiday: April Fool's Day",
+        "mother": "Holiday: Mother's Day",
+        "father": "Holiday: Father's Day",
+        "children": "Holiday: Children's Day",
+        "halloween": "Holiday: Halloween",
+        "world_cup": "Holiday: World Cup",
+        "thanksgiving": "Holiday: Thanksgiving",
+        "christmas": "Holiday: Christmas"
+      }
+    },
+    "dynamic_effect": {
+      "options": {
+        "none": "None",
+        "translation": "Translation",
+        "breath": "Breath",
+        "flashing": "Flashing",
+        "stack": "Stack"
+      }
     }
   },
   "services": {
@@ -158,6 +303,50 @@
         "direction": {
           "name": "Direction",
           "description": "Direction, for effects that support it."
+        }
+      }
+    },
+    "set_music_mode": {
+      "name": "Set music mode",
+      "description": "Start music mode (device microphone) with a rhythm effect and colours.",
+      "fields": {
+        "effect": {
+          "name": "Rhythm effect",
+          "description": "How the lights react to sound."
+        },
+        "scheme": {
+          "name": "Colour scheme",
+          "description": "Predefined colour scheme from the Yeelight app."
+        },
+        "colors": {
+          "name": "Custom colours",
+          "description": "1 to 16 RGB colours, e.g. [[255, 0, 0], [0, 0, 255]]. Overrides the colour scheme."
+        }
+      }
+    },
+    "set_custom_effect": {
+      "name": "Set custom effect",
+      "description": "DIY mode: give each light its own colour, optionally with a dynamic effect.",
+      "fields": {
+        "colors": {
+          "name": "Colours",
+          "description": "RGB colours, repeated along the string, e.g. [[255, 0, 0], [0, 255, 0]]."
+        },
+        "random": {
+          "name": "Random colours",
+          "description": "Give every light a random colour instead."
+        },
+        "dynamic_effect": {
+          "name": "Dynamic effect",
+          "description": "How the colours move."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "Speed of the dynamic effect, in percent."
+        },
+        "direction": {
+          "name": "Direction",
+          "description": "For Translation and Stack."
         }
       }
     }

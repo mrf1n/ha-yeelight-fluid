@@ -5,8 +5,10 @@ See docs/PROTOCOL.md for the protocol specification.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 import json
+import math
 from typing import Any
 
 from cryptography.hazmat.primitives.ciphers.aead import AESCCM
@@ -168,6 +170,82 @@ def parse_json_prop(value: Any) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+RATE_MIN = 1
+RATE_MAX = 255
+_RATE_PER_PERCENT = 2.55
+
+
+def rate_to_speed(rate: int) -> int:
+    """Firmware effect rate (1-255) to speed percent (1-100), as the app shows it."""
+    return max(1, min(100, math.ceil(int(rate) / _RATE_PER_PERCENT)))
+
+
+def speed_to_rate(speed: float) -> int:
+    """Speed percent (1-100) to firmware effect rate (1-255), as the app sends it."""
+    return max(RATE_MIN, min(RATE_MAX, math.ceil(speed * _RATE_PER_PERCENT)))
+
+
+MUSIC_PALETTE_SIZE = 16
+
+
+def _lerp_argb(a: int, b: int, t: float) -> int:
+    out = 0
+    for shift in (24, 16, 8, 0):
+        ca = (a >> shift) & 0xFF
+        cb = (b >> shift) & 0xFF
+        out |= (round(ca + (cb - ca) * t) & 0xFF) << shift
+    return out
+
+
+def music_palette(colors: list[int] | tuple[int, ...]) -> list[int]:
+    """Spread ARGB colours over the 16-entry music palette, as the app does.
+
+    One colour is repeated; several colours become a looping gradient, each
+    colour fading into the next one over an equal share of the 16 slots.
+    """
+    if not colors:
+        raise ValueError("at least one colour is required")
+    count = len(colors)
+    if count == 1:
+        return [colors[0] & 0xFFFFFFFF] * MUSIC_PALETTE_SIZE
+    base, extra = divmod(MUSIC_PALETTE_SIZE, count)
+    out: list[int] = []
+    for i, start in enumerate(colors):
+        end = colors[(i + 1) % count]
+        steps = base + (1 if i < extra else 0)
+        out.extend(_lerp_argb(start, end, j / steps) for j in range(steps))
+    return out
+
+
+def encode_music_mode(
+    on: bool, effect_id: int | None = None, colors: list[int] | tuple[int, ...] | None = None
+) -> str:
+    """Value for set_ps ["mic_music_mode", ...]: compact JSON string."""
+    payload: dict[str, Any] = {"on": 1 if on else 0}
+    if effect_id is not None:
+        payload["effect_id"] = effect_id
+    if colors:
+        payload["palatte"] = music_palette(colors)  # sic, firmware spelling
+    return json.dumps(payload, separators=(",", ":"))
+
+
+def _gamma(value: int) -> int:
+    """Gamma 2.2, as the app applies to each byte before sending."""
+    return int(255 * (value / 255) ** 2.2)
+
+
+def encode_custom_data(colors: list[int] | tuple[int, ...]) -> str:
+    """Per-LED colours (ARGB) to the base64 "data" of the custom effect.
+
+    Four bytes per LED, in A, R, G, B order, each gamma corrected.
+    """
+    raw = bytearray()
+    for color in colors:
+        for shift in (24, 16, 8, 0):
+            raw.append(_gamma((color >> shift) & 0xFF))
+    return base64.b64encode(bytes(raw)).decode()
 
 
 def argb_to_rgb(value: int) -> tuple[int, int, int]:

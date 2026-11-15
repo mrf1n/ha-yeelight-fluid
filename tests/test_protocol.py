@@ -5,11 +5,16 @@ from custom_components.yeelight_lights_ble.protocol import (
     JsonLineParser,
     argb_to_rgb,
     build_auth_packet,
+    encode_custom_data,
+    encode_music_mode,
     encode_request,
     encrypt_auth,
     mac_le,
+    music_palette,
     parse_manufacturer_data,
+    rate_to_speed,
     rgb_to_argb,
+    speed_to_rate,
 )
 
 from .conftest import ADDRESS, KEY_HEX, MANUFACTURER_DATA
@@ -70,3 +75,41 @@ def test_encode_request() -> None:
 def test_colors() -> None:
     assert argb_to_rgb(-1) == (255, 255, 255)
     assert rgb_to_argb((255, 0, 0)) == 4294901760
+
+
+def test_speed_rate_conversion() -> None:
+    assert rate_to_speed(128) == 51
+    assert rate_to_speed(255) == 100
+    assert rate_to_speed(1) == 1
+    assert speed_to_rate(1) == 3
+    assert speed_to_rate(51) == 131
+    assert speed_to_rate(100) == 255
+    assert speed_to_rate(0) == 1
+
+
+def test_music_palette() -> None:
+    assert music_palette([0xFFFF0000]) == [0xFFFF0000] * 16
+    # two colours: 8 slots each, red -> blue then blue -> red
+    pal = music_palette([0xFFFF0000, 0xFF0000FF])
+    assert len(pal) == 16
+    assert pal[0] == 0xFFFF0000
+    assert pal[8] == 0xFF0000FF
+    assert pal[4] == 0xFF800080
+    # five colours: 16 = 4 + 3 + 3 + 3 + 3
+    pal = music_palette([1, 2, 3, 4, 5])
+    assert len(pal) == 16
+    assert [pal[0], pal[4], pal[7], pal[10], pal[13]] == [1, 2, 3, 4, 5]
+
+
+def test_music_mode_payload() -> None:
+    assert encode_music_mode(False) == '{"on":0}'
+    on = encode_music_mode(True, 84, [0xFFFF0000])
+    assert on.startswith('{"on":1,"effect_id":84,"palatte":[4294901760,')
+
+
+def test_custom_data() -> None:
+    import base64
+
+    # A, R, G, B per LED, gamma 2.2 per byte: 0x80 -> 55
+    raw = base64.b64decode(encode_custom_data([0xFFFF8000, 0x00000000]))
+    assert list(raw) == [255, 255, 55, 0, 0, 0, 0, 0]

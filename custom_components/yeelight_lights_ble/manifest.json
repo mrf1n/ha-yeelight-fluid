@@ -1,6 +1,9 @@
 {
   "domain": "yeelight_lights_ble",
   "name": "Yeelight Lights (BLE)",
+  "after_dependencies": [
+    "frontend"
+  ],
   "bluetooth": [
     {
       "connectable": true,
@@ -19,12 +22,13 @@
   ],
   "config_flow": true,
   "dependencies": [
-    "bluetooth_adapters"
+    "bluetooth_adapters",
+    "http"
   ],
   "documentation": "https://github.com/mrf1n/ha-yeelight-lights-ble",
   "integration_type": "device",
   "iot_class": "local_push",
   "issue_tracker": "https://github.com/mrf1n/ha-yeelight-lights-ble/issues",
   "requirements": [],
-  "version": "0.2.0"
+  "version": "0.3.0"
 }

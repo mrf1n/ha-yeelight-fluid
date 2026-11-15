@@ -2,9 +2,9 @@
 
 from __future__ import annotations
 
-from .const import DEFAULT_SPEED, DIRECTIONS, EffectMode, ProductInfo
+from .const import DEFAULT_RATE, DIRECTIONS, EffectMode, ProductInfo
 from .device import YeelightBleDevice
-from .protocol import rgb_to_argb
+from .protocol import rgb_to_argb, speed_to_rate
 
 
 class EffectCatalog:
@@ -54,8 +54,7 @@ class EffectCatalog:
         direction: str | None = None,
     ) -> None:
         cfg = self._device.effect_config
-        if speed is None:
-            speed = int(cfg.get("rate") or DEFAULT_SPEED)
+        rate = int(cfg.get("rate") or DEFAULT_RATE) if speed is None else speed_to_rate(speed)
         dir_value: int | None = None
         if mode.directions:
             if direction is None:
@@ -66,5 +65,5 @@ class EffectCatalog:
         if colors and "color" in mode.capabilities:
             argb = [rgb_to_argb(c) for c in colors]
         await self._device.set_effect(
-            self.firmware_id(mode), rate=speed, colors=argb, direction=dir_value
+            self.firmware_id(mode), rate=rate, colors=argb, direction=dir_value
         )

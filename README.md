@@ -67,6 +67,21 @@ data:
   direction: down
 ```
 
+## Dashboard card
+
+The integration ships a card made for the Christmas String Lights: power, brightness, and the
+app's four modes (predefined modes with speed and direction, music flow with rhythm effects and
+colour schemes, pure colour with recent colours, and DIY patterns with dynamic effects). It loads
+automatically; add it to a dashboard with:
+
+```yaml
+type: custom:yeelight-christmas-card
+entity: light.<your_lights>
+```
+
+It also appears in the card picker as "Yeelight Christmas Lights". The DIY pattern you build in
+the card is kept in that browser.
+
 ## Development
 
 - Protocol notes: [`docs/PROTOCOL.md`](docs/PROTOCOL.md)

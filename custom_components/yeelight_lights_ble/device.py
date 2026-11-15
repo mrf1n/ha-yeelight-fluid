@@ -15,6 +15,15 @@ from bleak_retry_connector import (
     establish_connection,
 )
 
+from .const import RECENT_COLORS_MAX
+from .custom import CUSTOM_EFFECT_ID, DIRECTIONAL_MIXERS
+from .music import (
+    CUSTOM_SCHEME,
+    DEFAULT_MUSIC_SCHEME,
+    DEFAULT_RHYTHM_EFFECT,
+    RHYTHM_EFFECTS,
+    SCHEMES_BY_KEY,
+)
 from .protocol import (
     AUTH_NOTIFY,
     AUTH_WRITE,
@@ -28,6 +37,8 @@ from .protocol import (
     AuthFrameParser,
     JsonLineParser,
     build_auth_packet,
+    encode_custom_data,
+    encode_music_mode,
     encode_request,
     encrypt_auth,
     mac_le,
@@ -98,6 +109,14 @@ class YeelightBleDevice:
         self.effect_config: dict[str, Any] = {}
         self.effect_id: int | None = None
         self.custom_id: int | None = None
+        # last custom (DIY) effect sent, to apply it again from the effect list
+        self.last_custom: dict[str, Any] | None = None
+        # pure colours picked through Home Assistant, newest first: (hue, sat)
+        self.recent_colors: list[tuple[int, int]] = []
+        # music mode options, sent each time music mode starts
+        self.music_effect: str = DEFAULT_RHYTHM_EFFECT
+        self.music_scheme: str = DEFAULT_MUSIC_SCHEME
+        self.music_colors: tuple[int, ...] = SCHEMES_BY_KEY[DEFAULT_MUSIC_SCHEME].colors
         self.authenticated = False
         self.rssi: int | None = None
 
@@ -352,6 +371,11 @@ class YeelightBleDevice:
             fx = parse_json_prop(props["fx_effect"])
             self.effect_id = fx.get("effect_id")
             self.custom_id = fx.get("custom_id")
+        if "mic_music_mode" in props:
+            effect_id = parse_json_prop(props["mic_music_mode"]).get("effect_id")
+            for key, value in RHYTHM_EFFECTS.items():
+                if value == effect_id:
+                    self.music_effect = key
         self._notify_listeners()
 
     def _fail_pending(self, exc: Exception) -> None:
@@ -414,14 +438,26 @@ class YeelightBleDevice:
         await self.request("set_power", ["off", "smooth", transition_ms])
         self._apply_props({"power": "off"})
 
-    async def set_brightness(self, percent: int, transition_ms: int = 500) -> None:
+    async def set_brightness(self, percent: int) -> None:
         percent = max(1, min(100, percent))
-        await self.request("set_bright", [percent, "smooth", transition_ms])
+        await self.request("set_scene", ["bright", percent, 0])
         self._apply_props({"bright": percent})
 
     async def set_hs(self, hue: int, sat: int, transition_ms: int = 500) -> None:
         await self.request("set_hsv", [hue, sat, "smooth", transition_ms])
+        self.remember_color(hue, sat)
         self._apply_props({"hue": hue, "sat": sat, "color_mode": 3})
+
+    def remember_color(self, hue: int, sat: int) -> None:
+        """Add a new colour to the front of the recent list, like the app.
+
+        A colour already in the list keeps its place.
+        """
+        color = (int(hue), int(sat))
+        if color in self.recent_colors:
+            return
+        self.recent_colors.insert(0, color)
+        del self.recent_colors[RECENT_COLORS_MAX:]
 
     async def set_color_temp(self, kelvin: int, transition_ms: int = 500) -> None:
         await self.request("set_ct_abx", [kelvin, "smooth", transition_ms])
@@ -449,6 +485,38 @@ class YeelightBleDevice:
         self.effect_config.update(cfg)
         self._apply_props({"color_mode": 14})
 
+    async def set_custom_effect(
+        self,
+        colors: list[int],
+        mixer: int = 0,
+        rate: int | None = None,
+        direction: int | None = None,
+    ) -> None:
+        """Show one colour per LED (ARGB), optionally with a dynamic effect.
+
+        This is the app's DIY Graffiti mode: effect 36, colours in "data",
+        the dynamic effect in "mixer". Speed and direction are only sent
+        when the dynamic effect uses them.
+        """
+        cfg: dict[str, Any] = {}
+        if mixer:
+            cfg["mixer"] = mixer
+            if rate is not None:
+                cfg["rate"] = rate
+            if direction is not None and mixer in DIRECTIONAL_MIXERS:
+                cfg["direction"] = direction
+        cfg["data"] = encode_custom_data(colors)
+        await self.request("set_fx_effect", [CUSTOM_EFFECT_ID, 0, 1, cfg])
+        self.effect_id = CUSTOM_EFFECT_ID
+        self.effect_config = {k: v for k, v in cfg.items() if k != "data"}
+        self.last_custom = {
+            "colors": list(colors),
+            "mixer": mixer,
+            "rate": rate,
+            "direction": direction,
+        }
+        self._apply_props({"color_mode": 14})
+
     async def update_effect(self, **cfg: Any) -> None:
         cfg = {k: v for k, v in cfg.items() if v is not None}
         if not cfg:
@@ -457,7 +525,43 @@ class YeelightBleDevice:
         self.effect_config.update(cfg)
         self._notify_listeners()
 
-    async def set_music_mode(self, on: bool, effect_id: int = 0) -> None:
-        value = f'{{"on":{1 if on else 0},"effect_id":{effect_id}}}'
+    async def set_power_on_behavior(self, value: int) -> None:
+        await self.request("set_ps", ["cfg_init_power", value])
+        self._apply_props({"init_power_opt": value})
+
+    async def set_music_mode(self, on: bool) -> None:
+        """Start or stop microphone music mode.
+
+        Starting sends the rhythm effect id and a palette from the current
+        options; the firmware hangs when it gets "effect_id": 0. Stopping sends
+        only {"on": 0}, like the app.
+        """
+        if on:
+            value = encode_music_mode(True, RHYTHM_EFFECTS[self.music_effect], self.music_colors)
+        else:
+            value = encode_music_mode(False)
         await self.request("set_ps", ["mic_music_mode", value])
         self._apply_props({"mic_music_mode": value})
+
+    async def set_music_options(
+        self,
+        effect: str | None = None,
+        scheme: str | None = None,
+        colors: list[int] | tuple[int, ...] | None = None,
+    ) -> None:
+        """Change music mode options; resend them if music mode is running.
+
+        `colors` (ARGB) override `scheme` and make the scheme "custom".
+        """
+        if effect is not None:
+            self.music_effect = effect
+        if colors:
+            self.music_colors = tuple(colors)
+            self.music_scheme = CUSTOM_SCHEME
+        elif scheme is not None and scheme != CUSTOM_SCHEME:
+            self.music_scheme = scheme
+            self.music_colors = SCHEMES_BY_KEY[scheme].colors
+        if self.music_mode.get("on"):
+            await self.set_music_mode(True)
+        else:
+            self._notify_listeners()

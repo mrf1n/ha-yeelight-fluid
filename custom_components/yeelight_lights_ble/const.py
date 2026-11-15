@@ -48,6 +48,7 @@ class ProductInfo:
     effects: tuple[EffectMode, ...] = field(default_factory=tuple)
     # app effect id -> firmware effect id
     effect_mapping: dict[int, int] = field(default_factory=dict)
+    supports_color_temp: bool = True
     min_kelvin: int = 2700
     max_kelvin: int = 6500
     per_segment_count: int = 20
@@ -62,6 +63,7 @@ CHRISTMAS_LIGHTS = ProductInfo(
     name="Christmas String Lights",
     name_prefix="YLBT_CHRI",
     effect_mapping={82: 81},
+    supports_color_temp=False,
     effects=(
         EffectMode("warm_glow", "Warm Glow", 97, min_firmware=52),
         EffectMode("snow_white", "Snow White", 98, min_firmware=52),
@@ -96,7 +98,6 @@ PRODUCTS: Final[dict[int, ProductInfo]] = {
 # Pseudo effects
 EFFECT_MUSIC: Final = "Music"
 EFFECT_CUSTOM: Final = "Custom"
-MUSIC_EFFECT_ID: Final = 44
 
 # color_mode values reported by the device
 COLOR_MODE_CT: Final = 2
@@ -105,9 +106,16 @@ COLOR_MODE_EFFECT: Final = 14
 
 DIRECTIONS: Final = ("up", "down")
 
+# Pure colour mode: how many recently picked colours to keep (the app keeps 7)
+RECENT_COLORS_MAX: Final = 7
+
+# init_power_opt / cfg_init_power values
+POWER_ON_BEHAVIORS: Final = {"on": 1, "off": 2, "restore": 0}
+
 SPEED_MIN: Final = 1
 SPEED_MAX: Final = 100
-DEFAULT_SPEED: Final = 50
+# firmware effect rate is 1-255; the app's default is 128 (shown as 51 %)
+DEFAULT_RATE: Final = 128
 
 TRANSITION_MS: Final = 500
 

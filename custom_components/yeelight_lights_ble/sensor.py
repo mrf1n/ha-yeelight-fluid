@@ -30,6 +30,7 @@ class YeelightBleSensorDescription(SensorEntityDescription):
 SENSORS: tuple[YeelightBleSensorDescription, ...] = (
     YeelightBleSensorDescription(
         key="rssi",
+        translation_key="rssi",
         device_class=SensorDeviceClass.SIGNAL_STRENGTH,
         native_unit_of_measurement=SIGNAL_STRENGTH_DECIBELS_MILLIWATT,
         state_class=SensorStateClass.MEASUREMENT,
@@ -41,6 +42,7 @@ SENSORS: tuple[YeelightBleSensorDescription, ...] = (
         key="firmware",
         translation_key="firmware",
         entity_category=EntityCategory.DIAGNOSTIC,
+        entity_registry_enabled_default=False,
         value_fn=lambda d: d.state.get("fw_version"),
     ),
     YeelightBleSensorDescription(
