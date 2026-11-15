@@ -155,10 +155,13 @@ set_ps ["mic_music_mode", "{\"on\":0}"]
 
 - Turning on needs a music `effect_id` and a 16-colour `palatte` (sic).
   **`"effect_id": 0` hangs the firmware**; only a power cycle recovers it.
-- Music styles / effect ids: breathing 84, music note 87, impact 88, blossom 85, spectrum 86, gather 83.
+- Rhythm effects / effect ids. Christmas String Lights offer four: Breath 84, Shine 85,
+  Spectrum 86, Converge 83. Other products also use 87 and 88.
+  (Shine = 85 is inferred from the app's per-device effect list **VERIFY**.)
 - `palatte`: 16 ARGB ints. One colour is repeated 16 times; with N colours each colour fades
   linearly into the next (wrapping to the first), over 16 / N slots, the first 16 mod N colours getting one extra slot.
-  Default colour set ("happy"): `FFEA047E FFFF8861 FFFFE75F FF8DD852 FF00F5FF`.
+  Any colours work. The app's 45 predefined five-colour schemes (Mood, Landscape, Music,
+  Holiday) are in `custom_components/yeelight_lights_ble/music.py`; the default is Mood / Happy.
 - Turning off sends only `on: 0`; the device restores the previous effect.
 
 ## 5. Christmas String Lights effects

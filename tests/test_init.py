@@ -9,10 +9,10 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.yeelight_lights_ble.const import (
     CONF_KEY,
     CONF_PRODUCT_ID,
-    DEFAULT_MUSIC_COLORS,
     DOMAIN,
 )
 from custom_components.yeelight_lights_ble.device import YeelightBleDevice
+from custom_components.yeelight_lights_ble.music import SCHEMES_BY_KEY
 from custom_components.yeelight_lights_ble.protocol import encode_music_mode
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
@@ -122,8 +122,50 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             blocking=True,
         )
         request.assert_awaited_with(
-            "set_ps", ["mic_music_mode", encode_music_mode(True, 84, DEFAULT_MUSIC_COLORS)]
+            "set_ps",
+            ["mic_music_mode", encode_music_mode(True, 84, SCHEMES_BY_KEY["happy"].colors)],
         )
         assert hass.states.get("light.ylbt_chri_eeff_light").attributes["effect"] == "Music"
+
+        # changing music options while music mode runs resends them
+        assert hass.states.get("select.ylbt_chri_eeff_music_rhythm_effect").state == "breath"
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": "select.ylbt_chri_eeff_music_rhythm_effect", "option": "spectrum"},
+            blocking=True,
+        )
+        request.assert_awaited_with(
+            "set_ps",
+            ["mic_music_mode", encode_music_mode(True, 86, SCHEMES_BY_KEY["happy"].colors)],
+        )
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": "select.ylbt_chri_eeff_music_colour_scheme", "option": "christmas"},
+            blocking=True,
+        )
+        request.assert_awaited_with(
+            "set_ps",
+            ["mic_music_mode", encode_music_mode(True, 86, SCHEMES_BY_KEY["christmas"].colors)],
+        )
+
+        # custom colours via the action
+        await hass.services.async_call(
+            DOMAIN,
+            "set_music_mode",
+            {
+                "entity_id": "light.ylbt_chri_eeff_light",
+                "effect": "converge",
+                "colors": [[255, 0, 0], [0, 0, 255]],
+            },
+            blocking=True,
+        )
+        request.assert_awaited_with(
+            "set_ps", ["mic_music_mode", encode_music_mode(True, 83, [0xFFFF0000, 0xFF0000FF])]
+        )
+        scheme = hass.states.get("select.ylbt_chri_eeff_music_colour_scheme")
+        assert scheme.state == "custom"
+        assert scheme.attributes["colors"] == [[255, 0, 0], [0, 0, 255]]
 
         assert await hass.config_entries.async_unload(entry.entry_id)

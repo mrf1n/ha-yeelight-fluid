@@ -28,7 +28,6 @@ from .const import (
     DIRECTIONS,
     EFFECT_CUSTOM,
     EFFECT_MUSIC,
-    MUSIC_EFFECT_IDS,
     SPEED_MAX,
     SPEED_MIN,
     TRANSITION_MS,
@@ -36,6 +35,8 @@ from .const import (
 from .coordinator import YeelightBleCoordinator
 from .effects import EffectCatalog
 from .entity import YeelightBleEntity, handle_errors
+from .music import MAX_CUSTOM_COLORS, MUSIC_EFFECT_IDS, RHYTHM_EFFECTS, SCHEMES_BY_KEY
+from .protocol import rgb_to_argb
 
 
 async def async_setup_entry(
@@ -62,9 +63,23 @@ async def async_setup_entry(
         },
         "async_set_effect",
     )
+    platform.async_register_entity_service(
+        SERVICE_SET_MUSIC_MODE,
+        {
+            vol.Optional("effect"): vol.In(list(RHYTHM_EFFECTS)),
+            vol.Optional("scheme"): vol.In(list(SCHEMES_BY_KEY)),
+            vol.Optional("colors"): vol.All(
+                cv.ensure_list,
+                vol.Length(min=1, max=MAX_CUSTOM_COLORS),
+                [vol.All(vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple))],
+            ),
+        },
+        "async_set_music_mode",
+    )
 
 
 SERVICE_SET_EFFECT = "set_effect"
+SERVICE_SET_MUSIC_MODE = "set_music_mode"
 
 
 class YeelightBleLight(YeelightBleEntity, LightEntity):
@@ -192,3 +207,22 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             await self._device.turn_on()
         await self._leave_music()
         await self._catalog.apply(mode, speed=speed, colors=colors, direction=direction)
+
+    @handle_errors
+    async def async_set_music_mode(
+        self,
+        effect: str | None = None,
+        scheme: str | None = None,
+        colors: list[tuple[int, int, int]] | None = None,
+    ) -> None:
+        """Service: start music mode with a rhythm effect and colours."""
+        device = self._device
+        await device.set_music_options(
+            effect=effect,
+            scheme=scheme,
+            colors=[rgb_to_argb(c) for c in colors] if colors else None,
+        )
+        if not device.is_on:
+            await device.turn_on()
+        if not device.music_mode.get("on"):
+            await device.set_music_mode(True)

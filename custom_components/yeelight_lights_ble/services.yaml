@@ -52,3 +52,72 @@ set_effect:
           options:
             - up
             - down
+set_music_mode:
+  target:
+    entity:
+      integration: yeelight_lights_ble
+      domain: light
+  fields:
+    effect:
+      selector:
+        select:
+          translation_key: music_effect
+          options:
+            - breath
+            - shine
+            - spectrum
+            - converge
+    scheme:
+      selector:
+        select:
+          translation_key: music_scheme
+          options:
+            - happy
+            - surprised
+            - excited
+            - romantic
+            - relaxed
+            - joyful
+            - warm
+            - calm
+            - tranquil
+            - tropical_island
+            - purple_jungle
+            - sunset_desert
+            - tropical_rainforest
+            - heart_of_ocean
+            - violet_seas
+            - blue_glacier
+            - sunrise_sea
+            - green_meadow
+            - golden_forest
+            - blue_mountains
+            - pink_garden
+            - volcano_cave
+            - golden_leaves
+            - sunset_lake
+            - classical
+            - pop
+            - rock
+            - electronic
+            - antique
+            - rap
+            - jazz
+            - country
+            - metal
+            - alternative
+            - new_year
+            - valentine
+            - carnival
+            - april_fool
+            - mother
+            - father
+            - children
+            - halloween
+            - world_cup
+            - thanksgiving
+            - christmas
+    colors:
+      example: "[[255, 0, 0], [0, 0, 255]]"
+      selector:
+        object:

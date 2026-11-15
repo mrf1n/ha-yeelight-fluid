@@ -15,7 +15,13 @@ from bleak_retry_connector import (
     establish_connection,
 )
 
-from .const import DEFAULT_MUSIC_COLORS, DEFAULT_MUSIC_STYLE, MUSIC_STYLES
+from .music import (
+    CUSTOM_SCHEME,
+    DEFAULT_MUSIC_SCHEME,
+    DEFAULT_RHYTHM_EFFECT,
+    RHYTHM_EFFECTS,
+    SCHEMES_BY_KEY,
+)
 from .protocol import (
     AUTH_NOTIFY,
     AUTH_WRITE,
@@ -100,6 +106,10 @@ class YeelightBleDevice:
         self.effect_config: dict[str, Any] = {}
         self.effect_id: int | None = None
         self.custom_id: int | None = None
+        # music mode options, sent each time music mode starts
+        self.music_effect: str = DEFAULT_RHYTHM_EFFECT
+        self.music_scheme: str = DEFAULT_MUSIC_SCHEME
+        self.music_colors: tuple[int, ...] = SCHEMES_BY_KEY[DEFAULT_MUSIC_SCHEME].colors
         self.authenticated = False
         self.rssi: int | None = None
 
@@ -354,6 +364,11 @@ class YeelightBleDevice:
             fx = parse_json_prop(props["fx_effect"])
             self.effect_id = fx.get("effect_id")
             self.custom_id = fx.get("custom_id")
+        if "mic_music_mode" in props:
+            effect_id = parse_json_prop(props["mic_music_mode"]).get("effect_id")
+            for key, value in RHYTHM_EFFECTS.items():
+                if value == effect_id:
+                    self.music_effect = key
         self._notify_listeners()
 
     def _fail_pending(self, exc: Exception) -> None:
@@ -463,20 +478,39 @@ class YeelightBleDevice:
         await self.request("set_ps", ["cfg_init_power", value])
         self._apply_props({"init_power_opt": value})
 
-    async def set_music_mode(
-        self,
-        on: bool,
-        style: str = DEFAULT_MUSIC_STYLE,
-        colors: tuple[int, ...] | list[int] = DEFAULT_MUSIC_COLORS,
-    ) -> None:
+    async def set_music_mode(self, on: bool) -> None:
         """Start or stop microphone music mode.
 
-        Starting needs a real music effect id and a palette; the firmware hangs
-        when it gets "effect_id": 0. Stopping sends only {"on": 0}, like the app.
+        Starting sends the rhythm effect id and a palette from the current
+        options; the firmware hangs when it gets "effect_id": 0. Stopping sends
+        only {"on": 0}, like the app.
         """
         if on:
-            value = encode_music_mode(True, MUSIC_STYLES[style], colors)
+            value = encode_music_mode(True, RHYTHM_EFFECTS[self.music_effect], self.music_colors)
         else:
             value = encode_music_mode(False)
         await self.request("set_ps", ["mic_music_mode", value])
         self._apply_props({"mic_music_mode": value})
+
+    async def set_music_options(
+        self,
+        effect: str | None = None,
+        scheme: str | None = None,
+        colors: list[int] | tuple[int, ...] | None = None,
+    ) -> None:
+        """Change music mode options; resend them if music mode is running.
+
+        `colors` (ARGB) override `scheme` and make the scheme "custom".
+        """
+        if effect is not None:
+            self.music_effect = effect
+        if colors:
+            self.music_colors = tuple(colors)
+            self.music_scheme = CUSTOM_SCHEME
+        elif scheme is not None and scheme != CUSTOM_SCHEME:
+            self.music_scheme = scheme
+            self.music_colors = SCHEMES_BY_KEY[scheme].colors
+        if self.music_mode.get("on"):
+            await self.set_music_mode(True)
+        else:
+            self._notify_listeners()
