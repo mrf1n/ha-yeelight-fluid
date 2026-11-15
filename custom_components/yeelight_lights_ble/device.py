@@ -15,6 +15,7 @@ from bleak_retry_connector import (
     establish_connection,
 )
 
+from .const import RECENT_COLORS_MAX
 from .music import (
     CUSTOM_SCHEME,
     DEFAULT_MUSIC_SCHEME,
@@ -106,6 +107,8 @@ class YeelightBleDevice:
         self.effect_config: dict[str, Any] = {}
         self.effect_id: int | None = None
         self.custom_id: int | None = None
+        # pure colours picked through Home Assistant, newest first: (hue, sat)
+        self.recent_colors: list[tuple[int, int]] = []
         # music mode options, sent each time music mode starts
         self.music_effect: str = DEFAULT_RHYTHM_EFFECT
         self.music_scheme: str = DEFAULT_MUSIC_SCHEME
@@ -438,7 +441,19 @@ class YeelightBleDevice:
 
     async def set_hs(self, hue: int, sat: int, transition_ms: int = 500) -> None:
         await self.request("set_hsv", [hue, sat, "smooth", transition_ms])
+        self.remember_color(hue, sat)
         self._apply_props({"hue": hue, "sat": sat, "color_mode": 3})
+
+    def remember_color(self, hue: int, sat: int) -> None:
+        """Add a new colour to the front of the recent list, like the app.
+
+        A colour already in the list keeps its place.
+        """
+        color = (int(hue), int(sat))
+        if color in self.recent_colors:
+            return
+        self.recent_colors.insert(0, color)
+        del self.recent_colors[RECENT_COLORS_MAX:]
 
     async def set_color_temp(self, kelvin: int, transition_ms: int = 500) -> None:
         await self.request("set_ct_abx", [kelvin, "smooth", transition_ms])

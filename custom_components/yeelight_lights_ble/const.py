@@ -106,6 +106,9 @@ COLOR_MODE_EFFECT: Final = 14
 
 DIRECTIONS: Final = ("up", "down")
 
+# Pure colour mode: how many recently picked colours to keep (the app keeps 7)
+RECENT_COLORS_MAX: Final = 7
+
 # init_power_opt / cfg_init_power values
 POWER_ON_BEHAVIORS: Final = {"on": 1, "off": 2, "restore": 0}
 

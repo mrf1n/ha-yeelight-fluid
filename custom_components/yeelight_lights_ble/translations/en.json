@@ -160,6 +160,9 @@
           "christmas": "Holiday: Christmas",
           "custom": "Custom"
         }
+      },
+      "recent_colors": {
+        "name": "Recent colours"
       }
     },
     "switch": {

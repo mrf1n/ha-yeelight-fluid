@@ -80,6 +80,35 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
         )
         request.assert_awaited_with("set_scene", ["bright", 50, 0])
 
+        # pure colour: picked colours are remembered, newest first, max 7, no duplicates
+        recent = "select.ylbt_chri_eeff_recent_colours"
+        for hue in (0, 120, 240, 0, 30, 60, 90, 150, 180):
+            await hass.services.async_call(
+                "light",
+                "turn_on",
+                {"entity_id": "light.ylbt_chri_eeff_light", "hs_color": [hue, 100]},
+                blocking=True,
+            )
+        state = hass.states.get(recent)
+        assert state.attributes["options"] == [
+            "#00FFFF",
+            "#00FF80",
+            "#80FF00",
+            "#FFFF00",
+            "#FF8000",
+            "#0000FF",
+            "#00FF00",
+        ]
+        assert state.state == "#00FFFF"
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": recent, "option": "#0000FF"},
+            blocking=True,
+        )
+        request.assert_awaited_with("set_hsv", [240, 100, "smooth", 500])
+        assert hass.states.get(recent).state == "#0000FF"
+
         await hass.services.async_call(
             DOMAIN,
             "set_effect",
