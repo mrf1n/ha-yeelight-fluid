@@ -4,13 +4,16 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import logging
+from pathlib import Path
 
 from homeassistant.components import bluetooth
+from homeassistant.components.http import StaticPathConfig
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.const import CONF_ADDRESS, Platform
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.exceptions import ConfigEntryNotReady
 from homeassistant.helpers import config_validation as cv
+from homeassistant.helpers.typing import ConfigType
 
 from .const import (
     CONF_IDLE_TIMEOUT,
@@ -48,6 +51,24 @@ class RuntimeData:
 
 
 type YeelightBleConfigEntry = ConfigEntry[RuntimeData]
+
+CARD_FILE = Path(__file__).parent / "frontend" / "yeelight-christmas-card.js"
+CARD_URL = f"/{DOMAIN}/yeelight-christmas-card.js"
+# cache-busting version, read once at import (outside the event loop)
+CARD_VERSION = int(CARD_FILE.stat().st_mtime)
+
+
+async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
+    """Serve the Christmas lights dashboard card and load it in the frontend."""
+    if hass.http is not None:
+        await hass.http.async_register_static_paths(
+            [StaticPathConfig(CARD_URL, str(CARD_FILE), cache_headers=False)]
+        )
+    if "frontend" in hass.config.components:
+        from homeassistant.components.frontend import add_extra_js_url  # noqa: PLC0415
+
+        add_extra_js_url(hass, f"{CARD_URL}?v={CARD_VERSION}")
+    return True
 
 
 async def async_setup_entry(hass: HomeAssistant, entry: YeelightBleConfigEntry) -> bool:
