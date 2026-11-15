@@ -1,0 +1,54 @@
+set_effect:
+  target:
+    entity:
+      integration: yeelight_fluid
+      domain: light
+  fields:
+    effect:
+      required: true
+      example: meteor
+      selector:
+        select:
+          translation_key: effect
+          custom_value: true
+          options:
+            - warm_glow
+            - snow_white
+            - candy_cane
+            - christmas
+            - halloween
+            - valentines_day
+            - birthday
+            - independence_day
+            - meteor
+            - waves
+            - rainbow
+            - dream
+            - starry_sky
+            - summer
+            - winter
+            - warm
+            - flower_sea
+            - wonderland
+            - magic
+            - moonlight
+            - palette
+            - kaleidoscope
+            - neon
+    speed:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: slider
+    colors:
+      example: "[[255, 0, 0], [0, 255, 0]]"
+      selector:
+        object:
+    direction:
+      selector:
+        select:
+          translation_key: effect_direction
+          options:
+            - up
+            - down

@@ -1,0 +1,27 @@
+{
+  "domain": "yeelight_fluid",
+  "name": "Yeelight Fluid (BLE)",
+  "bluetooth": [
+    {
+      "connectable": true,
+      "local_name": "YLBT_*"
+    },
+    {
+      "connectable": true,
+      "manufacturer_id": 356
+    }
+  ],
+  "codeowners": [
+    "@mrf1n"
+  ],
+  "config_flow": true,
+  "dependencies": [
+    "bluetooth_adapters"
+  ],
+  "documentation": "https://github.com/mrf1n/ha-yeelight-fluid",
+  "integration_type": "device",
+  "iot_class": "local_push",
+  "issue_tracker": "https://github.com/mrf1n/ha-yeelight-fluid/issues",
+  "requirements": [],
+  "version": "0.1.0"
+}
