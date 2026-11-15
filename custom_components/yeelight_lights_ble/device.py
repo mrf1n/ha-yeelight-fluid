@@ -457,6 +457,10 @@ class YeelightBleDevice:
         self.effect_config.update(cfg)
         self._notify_listeners()
 
+    async def set_power_on_behavior(self, value: int) -> None:
+        await self.request("set_ps", ["cfg_init_power", value])
+        self._apply_props({"init_power_opt": value})
+
     async def set_music_mode(self, on: bool, effect_id: int = 0) -> None:
         value = f'{{"on":{1 if on else 0},"effect_id":{effect_id}}}'
         await self.request("set_ps", ["mic_music_mode", value])

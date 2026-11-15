@@ -107,6 +107,9 @@ COLOR_MODE_EFFECT: Final = 14
 
 DIRECTIONS: Final = ("up", "down")
 
+# init_power_opt / cfg_init_power values
+POWER_ON_BEHAVIORS: Final = {"on": 1, "off": 2, "restore": 0}
+
 SPEED_MIN: Final = 1
 SPEED_MAX: Final = 100
 # firmware effect rate is 1-255; the app's default is 128 (shown as 51 %)

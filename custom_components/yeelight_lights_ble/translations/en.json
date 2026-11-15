@@ -92,6 +92,14 @@
           "up": "Up",
           "down": "Down"
         }
+      },
+      "power_on_behavior": {
+        "name": "Default state after power on",
+        "state": {
+          "on": "Default light on",
+          "off": "Default light off",
+          "restore": "Restore to the state before power off"
+        }
       }
     },
     "switch": {

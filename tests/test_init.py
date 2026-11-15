@@ -25,6 +25,7 @@ STATE = {
     "mic_music_mode": '{"on":0,"effect_id":0}',
     "fw_version": 56,
     "strip_length": 200,
+    "init_power_opt": 0,
 }
 
 
@@ -96,6 +97,17 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             blocking=True,
         )
         request.assert_awaited_with("set_fx_effect", [81, 0, 1, {"rate": 179}])
+
+        power_on = "select.ylbt_chri_eeff_default_state_after_power_on"
+        assert hass.states.get(power_on).state == "restore"
+        await hass.services.async_call(
+            "select",
+            "select_option",
+            {"entity_id": power_on, "option": "off"},
+            blocking=True,
+        )
+        request.assert_awaited_with("set_ps", ["cfg_init_power", 2])
+        assert hass.states.get(power_on).state == "off"
 
         await hass.services.async_call(
             "switch",

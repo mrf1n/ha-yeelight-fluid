@@ -121,7 +121,7 @@ After auth the device pushes all properties:
 | `update_fx_effect` | `[{segcfg}]` | change running effect (rate / direction / mixer / data) |
 | `get_fx_effect` | `[]` | `[effect_id, custom_id, {segcfg}]` |
 | `set_ps` | `["mic_music_mode", "<json>"]` | music mode, see §4.5 |
-| `set_ps` | `["cfg_init_power", ...]` | power-on behaviour, format **VERIFY** |
+| `set_ps` | `["cfg_init_power", n]` | power-on behaviour: `0` restore previous state, `1` on, `2` off; read back as `init_power_opt` |
 
 Seen but not yet characterised: `reset_fx_effect`, `get/update_persist_effect_list`,
 `get/set_multi_connection_state`, `set_multi_connection`, `select_dev`, `req_ota`.

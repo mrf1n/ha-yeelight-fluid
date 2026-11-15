@@ -1,4 +1,4 @@
-"""Select platform: effect and direction."""
+"""Select platform: effect, direction and power-on behavior."""
 
 from __future__ import annotations
 
@@ -8,7 +8,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 
 from . import YeelightBleConfigEntry
-from .const import COLOR_MODE_EFFECT, DIRECTIONS
+from .const import COLOR_MODE_EFFECT, DIRECTIONS, POWER_ON_BEHAVIORS
 from .coordinator import YeelightBleCoordinator
 from .effects import EffectCatalog
 from .entity import YeelightBleEntity, handle_errors
@@ -20,7 +20,13 @@ async def async_setup_entry(
     async_add_entities: AddConfigEntryEntitiesCallback,
 ) -> None:
     coordinator = entry.runtime_data.coordinator
-    async_add_entities([EffectSelect(coordinator), EffectDirectionSelect(coordinator)])
+    async_add_entities(
+        [
+            EffectSelect(coordinator),
+            EffectDirectionSelect(coordinator),
+            PowerOnBehaviorSelect(coordinator),
+        ]
+    )
 
 
 class EffectSelect(YeelightBleEntity, SelectEntity):
@@ -78,3 +84,23 @@ class EffectDirectionSelect(YeelightBleEntity, SelectEntity):
     @handle_errors
     async def async_select_option(self, option: str) -> None:
         await self._device.update_effect(direction=DIRECTIONS.index(option))
+
+
+class PowerOnBehaviorSelect(YeelightBleEntity, SelectEntity):
+    """State the lights take when mains power returns."""
+
+    _attr_translation_key = "power_on_behavior"
+    _attr_options = list(POWER_ON_BEHAVIORS)
+    _attr_entity_category = EntityCategory.CONFIG
+
+    def __init__(self, coordinator: YeelightBleCoordinator) -> None:
+        super().__init__(coordinator, "power_on_behavior")
+
+    @property
+    def current_option(self) -> str | None:
+        value = self._device.state.get("init_power_opt")
+        return next((k for k, v in POWER_ON_BEHAVIORS.items() if v == value), None)
+
+    @handle_errors
+    async def async_select_option(self, option: str) -> None:
+        await self._device.set_power_on_behavior(POWER_ON_BEHAVIORS[option])
