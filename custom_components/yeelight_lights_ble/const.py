@@ -48,6 +48,7 @@ class ProductInfo:
     effects: tuple[EffectMode, ...] = field(default_factory=tuple)
     # app effect id -> firmware effect id
     effect_mapping: dict[int, int] = field(default_factory=dict)
+    supports_color_temp: bool = True
     min_kelvin: int = 2700
     max_kelvin: int = 6500
     per_segment_count: int = 20
@@ -62,6 +63,7 @@ CHRISTMAS_LIGHTS = ProductInfo(
     name="Christmas String Lights",
     name_prefix="YLBT_CHRI",
     effect_mapping={82: 81},
+    supports_color_temp=False,
     effects=(
         EffectMode("warm_glow", "Warm Glow", 97, min_firmware=52),
         EffectMode("snow_white", "Snow White", 98, min_firmware=52),

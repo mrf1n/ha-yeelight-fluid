@@ -71,13 +71,15 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
     """Main light entity."""
 
     _attr_name = None
-    _attr_supported_color_modes = {ColorMode.HS, ColorMode.COLOR_TEMP}
     _attr_supported_features = LightEntityFeature.EFFECT | LightEntityFeature.TRANSITION
 
     def __init__(self, coordinator: YeelightBleCoordinator) -> None:
         super().__init__(coordinator, "light")
         product = coordinator.product
         self._catalog = EffectCatalog(product, coordinator.device)
+        self._attr_supported_color_modes = (
+            {ColorMode.HS, ColorMode.COLOR_TEMP} if product.supports_color_temp else {ColorMode.HS}
+        )
         self._attr_min_color_temp_kelvin = product.min_kelvin
         self._attr_max_color_temp_kelvin = product.max_kelvin
         self._attr_effect_list = [*self._catalog.names, EFFECT_MUSIC]
@@ -96,7 +98,10 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
 
     @property
     def color_mode(self) -> ColorMode:
-        if self._device.state.get("color_mode") == COLOR_MODE_CT:
+        if (
+            ColorMode.COLOR_TEMP in self.supported_color_modes
+            and self._device.state.get("color_mode") == COLOR_MODE_CT
+        ):
             return ColorMode.COLOR_TEMP
         return ColorMode.HS
 
@@ -140,7 +145,7 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             await device.turn_on(ms)
 
         if ATTR_BRIGHTNESS in kwargs:
-            await device.set_brightness(max(1, round(kwargs[ATTR_BRIGHTNESS] * 100 / 255)), ms)
+            await device.set_brightness(max(1, round(kwargs[ATTR_BRIGHTNESS] * 100 / 255)))
 
         if ATTR_EFFECT in kwargs:
             effect = kwargs[ATTR_EFFECT]
@@ -156,7 +161,9 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             hue, sat = kwargs[ATTR_HS_COLOR]
             await self._leave_music()
             await device.set_hs(round(hue), round(sat), ms)
-        elif ATTR_COLOR_TEMP_KELVIN in kwargs:
+        elif (
+            ATTR_COLOR_TEMP_KELVIN in kwargs and ColorMode.COLOR_TEMP in self.supported_color_modes
+        ):
             await self._leave_music()
             await device.set_color_temp(kwargs[ATTR_COLOR_TEMP_KELVIN], ms)
 

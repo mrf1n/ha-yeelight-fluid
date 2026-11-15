@@ -111,18 +111,19 @@ After auth the device pushes all properties:
 | Method | Params | Notes |
 |---|---|---|
 | `set_power` | `["on"\|"off", "smooth", ms]` | |
-| `set_bright` | `[1-100, "smooth", ms]` | |
+| `set_scene` | `["bright", 1-100, 0]` | brightness; the official app uses this, not `set_bright` |
+| `set_bright` | `[1-100, "smooth", ms]` | not used by the official app **VERIFY** |
 | `set_hsv` | `[hue 0-359, sat 0-100, "smooth", ms]` | sets `color_mode 3` |
-| `set_ct_abx` | `[kelvin, "smooth", ms]` | sets `color_mode 2`; range 2700–6500 **VERIFY** |
+| `set_ct_abx` | `[kelvin, "smooth", ms]` | sets `color_mode 2`; only for products with a CT range (Christmas lights are RGB only) |
 | `get_prop` | `[name, ...]` | |
 | `get_ver` | `[]` | returns `[fw_version]` |
-| `set_fx_effect` | `[effect_id, 0, apply(1), {segcfg}]` | sets `color_mode 14` |
+| `set_fx_effect` | `[effect_id, 0, apply, {segcfg}]` | sets `color_mode 14`; `apply` 1 = select effect, 0 = live preview |
 | `update_fx_effect` | `[{segcfg}]` | change running effect (rate / direction / mixer / data) |
 | `get_fx_effect` | `[]` | `[effect_id, custom_id, {segcfg}]` |
 | `set_ps` | `["mic_music_mode", "<json>"]` | music mode, see §4.5 |
 | `set_ps` | `["cfg_init_power", ...]` | power-on behaviour, format **VERIFY** |
 
-Seen but not yet characterised: `set_scene`, `reset_fx_effect`, `get/update_persist_effect_list`,
+Seen but not yet characterised: `reset_fx_effect`, `get/update_persist_effect_list`,
 `get/set_multi_connection_state`, `set_multi_connection`, `select_dev`, `req_ota`.
 
 ### 4.4 Segment config (`segcfg`)

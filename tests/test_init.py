@@ -65,7 +65,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             {"entity_id": "light.ylbt_chri_eeff", "brightness": 128},
             blocking=True,
         )
-        request.assert_awaited_with("set_bright", [50, "smooth", 500])
+        request.assert_awaited_with("set_scene", ["bright", 50, 0])
 
         await hass.services.async_call(
             DOMAIN,

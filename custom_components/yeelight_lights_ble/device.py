@@ -414,9 +414,9 @@ class YeelightBleDevice:
         await self.request("set_power", ["off", "smooth", transition_ms])
         self._apply_props({"power": "off"})
 
-    async def set_brightness(self, percent: int, transition_ms: int = 500) -> None:
+    async def set_brightness(self, percent: int) -> None:
         percent = max(1, min(100, percent))
-        await self.request("set_bright", [percent, "smooth", transition_ms])
+        await self.request("set_scene", ["bright", percent, 0])
         self._apply_props({"bright": percent})
 
     async def set_hs(self, hue: int, sat: int, transition_ms: int = 500) -> None:
