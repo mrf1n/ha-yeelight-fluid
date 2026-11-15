@@ -1,0 +1,165 @@
+{
+  "config": {
+    "flow_title": "{name}",
+    "step": {
+      "user": {
+        "description": "Choose a Yeelight Bluetooth device.",
+        "data": {
+          "address": "Device"
+        }
+      },
+      "pair_menu": {
+        "description": "How do you want to add {name}?",
+        "menu_options": {
+          "pair": "Pair (recommended)",
+          "no_pair": "Add without pairing"
+        }
+      },
+      "pair": {
+        "title": "Pair {name}",
+        "description": "Make sure the Yeelight app on your phone is closed. Click Submit, then confirm pairing on the lights if they flash (press the controller button). Home Assistant waits up to 60 seconds."
+      },
+      "no_pair": {
+        "title": "Add {name} without pairing",
+        "description": "Current firmware accepts commands without pairing, but full state is only pushed after authentication. Future firmware may require pairing."
+      }
+    },
+    "error": {
+      "cannot_connect": "Failed to connect",
+      "pair_failed": "Pairing failed or timed out. Try again and confirm on the device."
+    },
+    "abort": {
+      "already_configured": "Device is already configured",
+      "no_devices_found": "No Yeelight Bluetooth devices found",
+      "not_supported": "Device not supported",
+      "cannot_connect": "Failed to connect"
+    }
+  },
+  "options": {
+    "step": {
+      "init": {
+        "data": {
+          "keep_connected": "Keep connected (instant updates, uses a Bluetooth connection slot)",
+          "idle_timeout": "Disconnect after idle (seconds)",
+          "poll_interval": "Poll interval when not kept connected (seconds)"
+        }
+      }
+    }
+  },
+  "entity": {
+    "number": {
+      "effect_speed": {
+        "name": "Effect speed"
+      }
+    },
+    "select": {
+      "effect": {
+        "name": "Effect",
+        "state": {
+          "warm_glow": "Warm Glow",
+          "snow_white": "Snow White",
+          "candy_cane": "Candy Cane",
+          "christmas": "Christmas",
+          "halloween": "Halloween",
+          "valentines_day": "Valentine's Day",
+          "birthday": "Birthday",
+          "independence_day": "Independence Day",
+          "meteor": "Meteor",
+          "waves": "Waves",
+          "rainbow": "Rainbow",
+          "dream": "Dream",
+          "starry_sky": "Starry Sky",
+          "summer": "Summer",
+          "winter": "Winter",
+          "warm": "Warm",
+          "flower_sea": "Flower Sea",
+          "wonderland": "Wonderland",
+          "magic": "Magic",
+          "moonlight": "Moonlight",
+          "palette": "Palette",
+          "kaleidoscope": "Kaleidoscope",
+          "neon": "Neon"
+        }
+      },
+      "effect_direction": {
+        "name": "Effect direction",
+        "state": {
+          "up": "Up",
+          "down": "Down"
+        }
+      }
+    },
+    "switch": {
+      "music_mode": {
+        "name": "Music mode"
+      }
+    },
+    "sensor": {
+      "firmware": {
+        "name": "Firmware"
+      },
+      "strip_length": {
+        "name": "LED count"
+      }
+    }
+  },
+  "selector": {
+    "effect": {
+      "options": {
+        "warm_glow": "Warm Glow",
+        "snow_white": "Snow White",
+        "candy_cane": "Candy Cane",
+        "christmas": "Christmas",
+        "halloween": "Halloween",
+        "valentines_day": "Valentine's Day",
+        "birthday": "Birthday",
+        "independence_day": "Independence Day",
+        "meteor": "Meteor",
+        "waves": "Waves",
+        "rainbow": "Rainbow",
+        "dream": "Dream",
+        "starry_sky": "Starry Sky",
+        "summer": "Summer",
+        "winter": "Winter",
+        "warm": "Warm",
+        "flower_sea": "Flower Sea",
+        "wonderland": "Wonderland",
+        "magic": "Magic",
+        "moonlight": "Moonlight",
+        "palette": "Palette",
+        "kaleidoscope": "Kaleidoscope",
+        "neon": "Neon"
+      }
+    },
+    "effect_direction": {
+      "options": {
+        "up": "Up",
+        "down": "Down"
+      }
+    }
+  },
+  "services": {
+    "set_effect": {
+      "name": "Set effect",
+      "description": "Apply an effect with optional speed, colors and direction.",
+      "fields": {
+        "effect": {
+          "name": "Effect",
+          "description": "Effect key."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "Effect speed 1-100."
+        },
+        "colors": {
+          "name": "Colors",
+          "description": "List of RGB colors, for effects that support color."
+        },
+        "direction": {
+          "name": "Direction",
+          "description": "Direction, for effects that support it."
+        }
+      }
+    }
+  }
+}
