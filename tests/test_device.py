@@ -98,3 +98,19 @@ async def test_turn_on_falls_back_to_set_scene() -> None:
         ("set_scene", ["bright", 40, 0], True),
     ]
     assert device.state["power"] == "on"
+
+
+async def test_request_uses_one_write_with_large_mtu() -> None:
+    """Each command goes out in a single write when the MTU allows, like the app."""
+    device = _device()
+    client = AsyncMock()
+    client.is_connected = True
+    client.mtu_size = 247
+    device._client = client
+
+    async def answer(_char, data, response=True):
+        device._on_ctrl_notify(None, bytearray(b'{"id":1,"result":["ok"]}\r\n'))
+
+    client.write_gatt_char.side_effect = answer
+    assert await device.request("set_power", ["on", "smooth", 500]) == ["ok"]
+    assert client.write_gatt_char.await_count == 1
