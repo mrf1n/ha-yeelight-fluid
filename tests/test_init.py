@@ -30,7 +30,7 @@ STATE = {
 
 async def _fake_update(self: YeelightBleDevice) -> None:
     self._apply_props(dict(STATE))
-    self.effect_config = {"rate": 50, "direction": 0}
+    self.effect_config = {"rate": 128, "direction": 0}
 
 
 async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
@@ -56,7 +56,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
         assert light.attributes["brightness"] == 97
 
         assert hass.states.get("select.ylbt_chri_eeff_effect").state == "christmas"
-        assert hass.states.get("number.ylbt_chri_eeff_effect_speed").state == "50.0"
+        assert hass.states.get("number.ylbt_chri_eeff_effect_speed").state == "51.0"
         assert hass.states.get("switch.ylbt_chri_eeff_music_mode").state == "off"
 
         registry = er.async_get(hass)
@@ -86,7 +86,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             blocking=True,
         )
         request.assert_awaited_with(
-            "set_fx_effect", [47, 0, 1, {"rate": 70, "color": [4294901760], "direction": 1}]
+            "set_fx_effect", [47, 0, 1, {"rate": 179, "color": [4294901760], "direction": 1}]
         )
 
         await hass.services.async_call(
@@ -95,7 +95,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             {"entity_id": "select.ylbt_chri_eeff_effect", "option": "christmas"},
             blocking=True,
         )
-        request.assert_awaited_with("set_fx_effect", [81, 0, 1, {"rate": 70}])
+        request.assert_awaited_with("set_fx_effect", [81, 0, 1, {"rate": 179}])
 
         await hass.services.async_call(
             "switch",

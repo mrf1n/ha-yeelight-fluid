@@ -109,7 +109,8 @@ DIRECTIONS: Final = ("up", "down")
 
 SPEED_MIN: Final = 1
 SPEED_MAX: Final = 100
-DEFAULT_SPEED: Final = 50
+# firmware effect rate is 1-255; the app's default is 128 (shown as 51 %)
+DEFAULT_RATE: Final = 128
 
 TRANSITION_MS: Final = 500
 

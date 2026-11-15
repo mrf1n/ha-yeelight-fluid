@@ -7,6 +7,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 import json
+import math
 from typing import Any
 
 from cryptography.hazmat.primitives.ciphers.aead import AESCCM
@@ -168,6 +169,21 @@ def parse_json_prop(value: Any) -> dict[str, Any]:
             return {}
         return parsed if isinstance(parsed, dict) else {}
     return {}
+
+
+RATE_MIN = 1
+RATE_MAX = 255
+_RATE_PER_PERCENT = 2.55
+
+
+def rate_to_speed(rate: int) -> int:
+    """Firmware effect rate (1-255) to speed percent (1-100), as the app shows it."""
+    return max(1, min(100, math.ceil(int(rate) / _RATE_PER_PERCENT)))
+
+
+def speed_to_rate(speed: float) -> int:
+    """Speed percent (1-100) to firmware effect rate (1-255), as the app sends it."""
+    return max(RATE_MIN, min(RATE_MAX, math.ceil(speed * _RATE_PER_PERCENT)))
 
 
 def argb_to_rgb(value: int) -> tuple[int, int, int]:

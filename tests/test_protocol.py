@@ -9,7 +9,9 @@ from custom_components.yeelight_lights_ble.protocol import (
     encrypt_auth,
     mac_le,
     parse_manufacturer_data,
+    rate_to_speed,
     rgb_to_argb,
+    speed_to_rate,
 )
 
 from .conftest import ADDRESS, KEY_HEX, MANUFACTURER_DATA
@@ -70,3 +72,13 @@ def test_encode_request() -> None:
 def test_colors() -> None:
     assert argb_to_rgb(-1) == (255, 255, 255)
     assert rgb_to_argb((255, 0, 0)) == 4294901760
+
+
+def test_speed_rate_conversion() -> None:
+    assert rate_to_speed(128) == 51
+    assert rate_to_speed(255) == 100
+    assert rate_to_speed(1) == 1
+    assert speed_to_rate(1) == 3
+    assert speed_to_rate(51) == 131
+    assert speed_to_rate(100) == 255
+    assert speed_to_rate(0) == 1

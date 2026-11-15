@@ -130,7 +130,7 @@ Seen but not yet characterised: `reset_fx_effect`, `get/update_persist_effect_li
 
 | Key | Type | Notes |
 |---|---|---|
-| `rate` | int | effect speed, 1–100 **VERIFY** direction of scale |
+| `rate` | int | effect speed, 1–255, default 128; the app shows it as percent = ceil(rate / 2.55); whether higher = faster **VERIFY** |
 | `color` | int[] | ARGB, e.g. `0xFFFF0000` = red; device returns signed int32 |
 | `direction` | int | `0` / `1` for directional effects (`0` = up **VERIFY**) |
 | `intensity` | int | default 128 |
