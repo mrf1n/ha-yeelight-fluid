@@ -3,7 +3,8 @@
 Unofficial, local-only Home Assistant integration for Yeelight Bluetooth lights managed by the
 **Yeelight** app. No cloud account needed.
 
-> Not affiliated with or endorsed by Yeelight.
+> Not affiliated with or endorsed by Yeelight. The Yeelight name and logo are trademarks of their
+> owner and are used here only to identify compatible devices.
 
 ## Supported devices
 
