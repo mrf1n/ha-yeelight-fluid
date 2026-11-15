@@ -47,6 +47,11 @@
     }
   },
   "entity": {
+    "light": {
+      "light": {
+        "name": "Light"
+      }
+    },
     "number": {
       "effect_speed": {
         "name": "Effect speed"

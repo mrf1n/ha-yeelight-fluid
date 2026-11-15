@@ -70,7 +70,7 @@ SERVICE_SET_EFFECT = "set_effect"
 class YeelightBleLight(YeelightBleEntity, LightEntity):
     """Main light entity."""
 
-    _attr_name = None
+    _attr_translation_key = "light"
     _attr_supported_features = LightEntityFeature.EFFECT | LightEntityFeature.TRANSITION
 
     def __init__(self, coordinator: YeelightBleCoordinator) -> None:

@@ -49,7 +49,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
         assert await hass.config_entries.async_setup(entry.entry_id)
         await hass.async_block_till_done()
 
-        light = hass.states.get("light.ylbt_chri_eeff")
+        light = hass.states.get("light.ylbt_chri_eeff_light")
         assert light is not None
         assert light.state == "on"
         assert light.attributes["effect"] == "Christmas"
@@ -68,7 +68,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
         await hass.services.async_call(
             "light",
             "turn_on",
-            {"entity_id": "light.ylbt_chri_eeff", "brightness": 128},
+            {"entity_id": "light.ylbt_chri_eeff_light", "brightness": 128},
             blocking=True,
         )
         request.assert_awaited_with("set_scene", ["bright", 50, 0])
@@ -77,7 +77,7 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             DOMAIN,
             "set_effect",
             {
-                "entity_id": "light.ylbt_chri_eeff",
+                "entity_id": "light.ylbt_chri_eeff_light",
                 "effect": "meteor",
                 "speed": 70,
                 "colors": [[255, 0, 0]],
@@ -104,6 +104,6 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
             blocking=True,
         )
         request.assert_awaited_with("set_ps", ["mic_music_mode", '{"on":1,"effect_id":0}'])
-        assert hass.states.get("light.ylbt_chri_eeff").attributes["effect"] == "Music"
+        assert hass.states.get("light.ylbt_chri_eeff_light").attributes["effect"] == "Music"
 
         assert await hass.config_entries.async_unload(entry.entry_id)
