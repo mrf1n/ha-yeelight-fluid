@@ -218,3 +218,9 @@ __marimo__/
 
 # Streamlit
 .streamlit/secrets.toml
+
+# probe device keys
+tools/probe_state.json
+
+# IDE
+.idea/
