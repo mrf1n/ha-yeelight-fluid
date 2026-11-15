@@ -13,6 +13,7 @@ from homeassistant.helpers.restore_state import RestoreEntity
 from . import YeelightBleConfigEntry
 from .const import COLOR_MODE_EFFECT, COLOR_MODE_HSV, DIRECTIONS, POWER_ON_BEHAVIORS
 from .coordinator import YeelightBleCoordinator
+from .custom import effect_controls
 from .effects import EffectCatalog
 from .entity import YeelightBleEntity, handle_errors
 from .music import CUSTOM_SCHEME, MUSIC_SCHEMES, RHYTHM_EFFECTS, SCHEMES_BY_KEY
@@ -78,6 +79,12 @@ class EffectDirectionSelect(YeelightBleEntity, SelectEntity):
 
     def __init__(self, coordinator: YeelightBleCoordinator) -> None:
         super().__init__(coordinator, "effect_direction")
+        self._catalog = EffectCatalog(coordinator.product, coordinator.device)
+
+    @property
+    def available(self) -> bool:
+        """Only for Meteor, Waves, and custom effects with Translation or Stack."""
+        return super().available and effect_controls(self._device, self._catalog)[1]
 
     @property
     def current_option(self) -> str | None:

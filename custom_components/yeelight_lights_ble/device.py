@@ -16,6 +16,7 @@ from bleak_retry_connector import (
 )
 
 from .const import RECENT_COLORS_MAX
+from .custom import CUSTOM_EFFECT_ID, DIRECTIONAL_MIXERS
 from .music import (
     CUSTOM_SCHEME,
     DEFAULT_MUSIC_SCHEME,
@@ -36,6 +37,7 @@ from .protocol import (
     AuthFrameParser,
     JsonLineParser,
     build_auth_packet,
+    encode_custom_data,
     encode_music_mode,
     encode_request,
     encrypt_auth,
@@ -107,6 +109,8 @@ class YeelightBleDevice:
         self.effect_config: dict[str, Any] = {}
         self.effect_id: int | None = None
         self.custom_id: int | None = None
+        # last custom (DIY) effect sent, to apply it again from the effect list
+        self.last_custom: dict[str, Any] | None = None
         # pure colours picked through Home Assistant, newest first: (hue, sat)
         self.recent_colors: list[tuple[int, int]] = []
         # music mode options, sent each time music mode starts
@@ -479,6 +483,38 @@ class YeelightBleDevice:
         await self.request("set_fx_effect", [effect_id, 0, 1, cfg])
         self.effect_id = effect_id
         self.effect_config.update(cfg)
+        self._apply_props({"color_mode": 14})
+
+    async def set_custom_effect(
+        self,
+        colors: list[int],
+        mixer: int = 0,
+        rate: int | None = None,
+        direction: int | None = None,
+    ) -> None:
+        """Show one colour per LED (ARGB), optionally with a dynamic effect.
+
+        This is the app's DIY Graffiti mode: effect 36, colours in "data",
+        the dynamic effect in "mixer". Speed and direction are only sent
+        when the dynamic effect uses them.
+        """
+        cfg: dict[str, Any] = {}
+        if mixer:
+            cfg["mixer"] = mixer
+            if rate is not None:
+                cfg["rate"] = rate
+            if direction is not None and mixer in DIRECTIONAL_MIXERS:
+                cfg["direction"] = direction
+        cfg["data"] = encode_custom_data(colors)
+        await self.request("set_fx_effect", [CUSTOM_EFFECT_ID, 0, 1, cfg])
+        self.effect_id = CUSTOM_EFFECT_ID
+        self.effect_config = {k: v for k, v in cfg.items() if k != "data"}
+        self.last_custom = {
+            "colors": list(colors),
+            "mixer": mixer,
+            "rate": rate,
+            "direction": direction,
+        }
         self._apply_props({"color_mode": 14})
 
     async def update_effect(self, **cfg: Any) -> None:

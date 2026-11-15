@@ -5,6 +5,7 @@ from custom_components.yeelight_lights_ble.protocol import (
     JsonLineParser,
     argb_to_rgb,
     build_auth_packet,
+    encode_custom_data,
     encode_music_mode,
     encode_request,
     encrypt_auth,
@@ -104,3 +105,11 @@ def test_music_mode_payload() -> None:
     assert encode_music_mode(False) == '{"on":0}'
     on = encode_music_mode(True, 84, [0xFFFF0000])
     assert on.startswith('{"on":1,"effect_id":84,"palatte":[4294901760,')
+
+
+def test_custom_data() -> None:
+    import base64
+
+    # A, R, G, B per LED, gamma 2.2 per byte: 0x80 -> 55
+    raw = base64.b64decode(encode_custom_data([0xFFFF8000, 0x00000000]))
+    assert list(raw) == [255, 255, 55, 0, 0, 0, 0, 0]

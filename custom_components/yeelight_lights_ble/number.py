@@ -10,6 +10,8 @@ from homeassistant.helpers.entity_platform import AddConfigEntryEntitiesCallback
 from . import YeelightBleConfigEntry
 from .const import SPEED_MAX, SPEED_MIN
 from .coordinator import YeelightBleCoordinator
+from .custom import effect_controls
+from .effects import EffectCatalog
 from .entity import YeelightBleEntity, handle_errors
 from .protocol import rate_to_speed, speed_to_rate
 
@@ -35,6 +37,12 @@ class EffectSpeedNumber(YeelightBleEntity, NumberEntity):
 
     def __init__(self, coordinator: YeelightBleCoordinator) -> None:
         super().__init__(coordinator, "effect_speed")
+        self._catalog = EffectCatalog(coordinator.product, coordinator.device)
+
+    @property
+    def available(self) -> bool:
+        """Only while a predefined effect, or a custom one with a dynamic effect, runs."""
+        return super().available and effect_controls(self._device, self._catalog)[0]
 
     @property
     def native_value(self) -> float | None:

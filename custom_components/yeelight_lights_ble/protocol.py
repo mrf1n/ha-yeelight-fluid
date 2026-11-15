@@ -5,6 +5,7 @@ See docs/PROTOCOL.md for the protocol specification.
 
 from __future__ import annotations
 
+import base64
 from dataclasses import dataclass
 import json
 import math
@@ -228,6 +229,23 @@ def encode_music_mode(
     if colors:
         payload["palatte"] = music_palette(colors)  # sic, firmware spelling
     return json.dumps(payload, separators=(",", ":"))
+
+
+def _gamma(value: int) -> int:
+    """Gamma 2.2, as the app applies to each byte before sending."""
+    return int(255 * (value / 255) ** 2.2)
+
+
+def encode_custom_data(colors: list[int] | tuple[int, ...]) -> str:
+    """Per-LED colours (ARGB) to the base64 "data" of the custom effect.
+
+    Four bytes per LED, in A, R, G, B order, each gamma corrected.
+    """
+    raw = bytearray()
+    for color in colors:
+        for shift in (24, 16, 8, 0):
+            raw.append(_gamma((color >> shift) & 0xFF))
+    return base64.b64encode(bytes(raw)).decode()
 
 
 def argb_to_rgb(value: int) -> tuple[int, int, int]:

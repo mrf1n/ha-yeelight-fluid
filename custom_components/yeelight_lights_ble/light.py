@@ -30,6 +30,7 @@ from . import YeelightBleConfigEntry
 from .const import (
     COLOR_MODE_CT,
     COLOR_MODE_EFFECT,
+    DEFAULT_RATE,
     DIRECTIONS,
     EFFECT_CUSTOM,
     EFFECT_MUSIC,
@@ -38,10 +39,18 @@ from .const import (
     TRANSITION_MS,
 )
 from .coordinator import YeelightBleCoordinator
+from .custom import (
+    CUSTOM_EFFECT_ID,
+    DEFAULT_DYNAMIC_EFFECT,
+    DEFAULT_LED_COUNT,
+    DYNAMIC_EFFECTS,
+    pattern_colors,
+    random_colors,
+)
 from .effects import EffectCatalog
 from .entity import YeelightBleEntity, handle_errors
 from .music import MAX_CUSTOM_COLORS, MUSIC_EFFECT_IDS, RHYTHM_EFFECTS, SCHEMES_BY_KEY
-from .protocol import rgb_to_argb
+from .protocol import rgb_to_argb, speed_to_rate
 
 
 async def async_setup_entry(
@@ -81,9 +90,38 @@ async def async_setup_entry(
         },
         "async_set_music_mode",
     )
+    platform.async_register_entity_service(
+        SERVICE_SET_CUSTOM_EFFECT,
+        vol.All(
+            cv.make_entity_service_schema(
+                {
+                    vol.Optional("colors"): vol.All(
+                        cv.ensure_list,
+                        vol.Length(min=1),
+                        [
+                            vol.All(
+                                vol.ExactSequence((cv.byte, cv.byte, cv.byte)), vol.Coerce(tuple)
+                            )
+                        ],
+                    ),
+                    vol.Optional("random"): cv.boolean,
+                    vol.Optional("dynamic_effect", default=DEFAULT_DYNAMIC_EFFECT): vol.In(
+                        list(DYNAMIC_EFFECTS)
+                    ),
+                    vol.Optional("speed"): vol.All(
+                        vol.Coerce(int), vol.Range(min=SPEED_MIN, max=SPEED_MAX)
+                    ),
+                    vol.Optional("direction"): vol.In(DIRECTIONS),
+                }
+            ),
+            cv.has_at_least_one_key("colors", "random"),
+        ),
+        "async_set_custom_effect",
+    )
 
 
 SERVICE_SET_EFFECT = "set_effect"
+SERVICE_SET_CUSTOM_EFFECT = "set_custom_effect"
 SERVICE_SET_MUSIC_MODE = "set_music_mode"
 
 
@@ -102,7 +140,7 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
         )
         self._attr_min_color_temp_kelvin = product.min_kelvin
         self._attr_max_color_temp_kelvin = product.max_kelvin
-        self._attr_effect_list = [*self._catalog.names, EFFECT_MUSIC]
+        self._attr_effect_list = [*self._catalog.names, EFFECT_MUSIC, EFFECT_CUSTOM]
         self._synced_recent: tuple[tuple[int, int], ...] = ()
 
     # State ------------------------------------------------------------ #
@@ -168,6 +206,8 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             return None
         if device.effect_id in MUSIC_EFFECT_IDS:
             return EFFECT_MUSIC
+        if device.effect_id == CUSTOM_EFFECT_ID:
+            return EFFECT_CUSTOM
         if device.effect_id:
             mode = self._catalog.by_firmware_id(device.effect_id)
             if mode:
@@ -192,6 +232,13 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             effect = kwargs[ATTR_EFFECT]
             if effect == EFFECT_MUSIC:
                 await device.set_music_mode(True)
+            elif effect == EFFECT_CUSTOM:
+                if device.last_custom is None:
+                    raise ServiceValidationError(
+                        "No custom effect yet: use the yeelight_lights_ble.set_custom_effect action"
+                    )
+                await self._leave_music()
+                await device.set_custom_effect(**device.last_custom)
             else:
                 if device.music_mode.get("on"):
                     await device.set_music_mode(False)
@@ -252,3 +299,34 @@ class YeelightBleLight(YeelightBleEntity, LightEntity):
             await device.turn_on()
         if not device.music_mode.get("on"):
             await device.set_music_mode(True)
+
+    @handle_errors
+    async def async_set_custom_effect(
+        self,
+        colors: list[tuple[int, int, int]] | None = None,
+        random: bool = False,
+        dynamic_effect: str = DEFAULT_DYNAMIC_EFFECT,
+        speed: int | None = None,
+        direction: str | None = None,
+    ) -> None:
+        """Service: DIY mode, one colour per LED, optionally animated."""
+        device = self._device
+        try:
+            count = int(device.state.get("strip_length") or DEFAULT_LED_COUNT)
+        except (TypeError, ValueError):
+            count = DEFAULT_LED_COUNT
+        if colors:
+            argb = pattern_colors([rgb_to_argb(c) for c in colors], count)
+        elif random:
+            argb = random_colors(count)
+        else:
+            raise ServiceValidationError("Give colours or set random")
+        mixer = DYNAMIC_EFFECTS[dynamic_effect]
+        rate = speed_to_rate(speed) if speed is not None else None
+        if mixer and rate is None:
+            rate = int(device.effect_config.get("rate") or DEFAULT_RATE)
+        dir_value = DIRECTIONS.index(direction) if direction is not None else None
+        if not device.is_on:
+            await device.turn_on()
+        await self._leave_music()
+        await device.set_custom_effect(argb, mixer=mixer, rate=rate, direction=dir_value)

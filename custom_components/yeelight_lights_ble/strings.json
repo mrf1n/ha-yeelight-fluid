@@ -272,6 +272,15 @@
         "thanksgiving": "Holiday: Thanksgiving",
         "christmas": "Holiday: Christmas"
       }
+    },
+    "dynamic_effect": {
+      "options": {
+        "none": "None",
+        "translation": "Translation",
+        "breath": "Breath",
+        "flashing": "Flashing",
+        "stack": "Stack"
+      }
     }
   },
   "services": {
@@ -312,6 +321,32 @@
         "colors": {
           "name": "Custom colours",
           "description": "1 to 16 RGB colours, e.g. [[255, 0, 0], [0, 0, 255]]. Overrides the colour scheme."
+        }
+      }
+    },
+    "set_custom_effect": {
+      "name": "Set custom effect",
+      "description": "DIY mode: give each light its own colour, optionally with a dynamic effect.",
+      "fields": {
+        "colors": {
+          "name": "Colours",
+          "description": "RGB colours, repeated along the string, e.g. [[255, 0, 0], [0, 255, 0]]."
+        },
+        "random": {
+          "name": "Random colours",
+          "description": "Give every light a random colour instead."
+        },
+        "dynamic_effect": {
+          "name": "Dynamic effect",
+          "description": "How the colours move."
+        },
+        "speed": {
+          "name": "Speed",
+          "description": "Speed of the dynamic effect, in percent."
+        },
+        "direction": {
+          "name": "Direction",
+          "description": "For Translation and Stack."
         }
       }
     }

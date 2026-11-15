@@ -121,3 +121,40 @@ set_music_mode:
       example: "[[255, 0, 0], [0, 0, 255]]"
       selector:
         object:
+set_custom_effect:
+  target:
+    entity:
+      integration: yeelight_lights_ble
+      domain: light
+  fields:
+    colors:
+      example: "[[255, 0, 0], [0, 255, 0], [255, 255, 255]]"
+      selector:
+        object:
+    random:
+      selector:
+        boolean:
+    dynamic_effect:
+      default: none
+      selector:
+        select:
+          translation_key: dynamic_effect
+          options:
+            - none
+            - translation
+            - breath
+            - flashing
+            - stack
+    speed:
+      selector:
+        number:
+          min: 1
+          max: 100
+          mode: slider
+    direction:
+      selector:
+        select:
+          translation_key: effect_direction
+          options:
+            - up
+            - down
