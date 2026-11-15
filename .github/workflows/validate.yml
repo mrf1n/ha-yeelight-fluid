@@ -19,8 +19,6 @@ jobs:
       - uses: hacs/action@main
         with:
           category: integration
-          # remove once brand assets are merged in home-assistant/brands
-          ignore: brands
 
   lint:
     runs-on: ubuntu-latest
