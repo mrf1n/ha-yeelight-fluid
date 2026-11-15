@@ -6,8 +6,8 @@ from unittest.mock import AsyncMock, patch
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.yeelight_fluid.const import CONF_KEY, CONF_PRODUCT_ID, DOMAIN
-from custom_components.yeelight_fluid.device import YeelightFluidDevice
+from custom_components.yeelight_fluid_ble.const import CONF_KEY, CONF_PRODUCT_ID, DOMAIN
+from custom_components.yeelight_fluid_ble.device import YeelightFluidDevice
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
 

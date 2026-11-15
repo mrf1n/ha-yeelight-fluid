@@ -1,6 +1,6 @@
 """Protocol tests (frame layouts verified on real hardware, fw 56; key/MAC synthetic)."""
 
-from custom_components.yeelight_fluid.protocol import (
+from custom_components.yeelight_fluid_ble.protocol import (
     AuthFrameParser,
     JsonLineParser,
     argb_to_rgb,

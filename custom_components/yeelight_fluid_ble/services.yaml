@@ -1,7 +1,7 @@
 set_effect:
   target:
     entity:
-      integration: yeelight_fluid
+      integration: yeelight_fluid_ble
       domain: light
   fields:
     effect:

@@ -70,11 +70,11 @@ def mock_ble_lookup(service_info):
             return_value=service_info.device,
         ),
         patch(
-            "custom_components.yeelight_fluid.config_flow.async_ble_device_from_address",
+            "custom_components.yeelight_fluid_ble.config_flow.async_ble_device_from_address",
             return_value=service_info.device,
         ),
         patch(
-            "custom_components.yeelight_fluid.config_flow.async_discovered_service_info",
+            "custom_components.yeelight_fluid_ble.config_flow.async_discovered_service_info",
             return_value=[service_info],
         ),
         patch(

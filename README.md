@@ -22,7 +22,7 @@ protocol and may be added later — open an issue with your device's `scan` outp
 - 23 built-in effects + Music mode
 - Effect select, effect speed slider, effect direction (Meteor / Waves)
 - Music mode switch (uses the lights' built-in microphone)
-- `yeelight_fluid.set_effect` action with speed, colors and direction
+- `yeelight_fluid_ble.set_effect` action with speed, colors and direction
 - Diagnostics: firmware, RSSI, LED count
 - Connection modes: connect on demand (default) or stay connected for instant state push
 
@@ -30,12 +30,12 @@ protocol and may be added later — open an issue with your device's `scan` outp
 
 ### HACS (custom repository)
 
-1. HACS → ⋮ → **Custom repositories** → add `https://github.com/mrf1n/ha-yeelight-fluid`, type **Integration**.
+1. HACS → ⋮ → **Custom repositories** → add `https://github.com/mrf1n/ha-yeelight-fluid-ble`, type **Integration**.
 2. Install **Yeelight Fluid (BLE)** and restart Home Assistant.
 
 ### Manual
 
-Copy `custom_components/yeelight_fluid` into your `config/custom_components/` and restart.
+Copy `custom_components/yeelight_fluid_ble` into your `config/custom_components/` and restart.
 
 ## Setup
 
@@ -53,10 +53,10 @@ Pairing from Home Assistant may require re-pairing the lights in the phone app a
 | Disconnect after idle | 60 s | On-demand mode: disconnect after this many idle seconds. |
 | Poll interval | 300 s | On-demand mode: how often to refresh state. |
 
-## Action: `yeelight_fluid.set_effect`
+## Action: `yeelight_fluid_ble.set_effect`
 
 ```yaml
-action: yeelight_fluid.set_effect
+action: yeelight_fluid_ble.set_effect
 target:
   entity_id: light.ylbt_chri_cda1
 data:

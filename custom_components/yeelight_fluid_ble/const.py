@@ -5,7 +5,7 @@ from __future__ import annotations
 from dataclasses import dataclass, field
 from typing import Final
 
-DOMAIN: Final = "yeelight_fluid"
+DOMAIN: Final = "yeelight_fluid_ble"
 MANUFACTURER: Final = "Yeelight"
 
 CONF_KEY: Final = "key"
