@@ -10,6 +10,7 @@ from custom_components.yeelight_lights_ble.const import CONF_KEY, CONF_PRODUCT_I
 from custom_components.yeelight_lights_ble.device import YeelightBleDevice
 from homeassistant.const import CONF_ADDRESS
 from homeassistant.core import HomeAssistant
+from homeassistant.helpers import entity_registry as er
 
 from .conftest import ADDRESS, KEY_HEX
 
@@ -57,7 +58,12 @@ async def test_setup_and_entities(hass: HomeAssistant, mock_ble_lookup) -> None:
         assert hass.states.get("select.ylbt_chri_eeff_effect").state == "christmas"
         assert hass.states.get("number.ylbt_chri_eeff_effect_speed").state == "50.0"
         assert hass.states.get("switch.ylbt_chri_eeff_music_mode").state == "off"
-        assert hass.states.get("sensor.ylbt_chri_eeff_firmware").state == "56"
+
+        registry = er.async_get(hass)
+        for sensor in ("signal_strength", "firmware", "led_count"):
+            entity = registry.async_get(f"sensor.ylbt_chri_eeff_{sensor}")
+            assert entity is not None, sensor
+            assert entity.disabled_by is er.RegistryEntryDisabler.INTEGRATION
 
         await hass.services.async_call(
             "light",
