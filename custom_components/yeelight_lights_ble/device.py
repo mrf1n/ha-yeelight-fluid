@@ -84,6 +84,10 @@ class YeelightBleError(Exception):
     """Communication error."""
 
 
+class YeelightBleTimeout(YeelightBleError):
+    """No answer to a request in time."""
+
+
 class YeelightBleAuthError(YeelightBleError):
     """Authentication / pairing failed."""
 
@@ -125,6 +129,8 @@ class YeelightBleDevice:
         self._write_lock = asyncio.Lock()
         self._msg_id = 0
         self._pending: dict[int, asyncio.Future[Any]] = {}
+        # props that also count as the answer to a pending request (msg id -> props)
+        self._confirm: dict[int, dict[str, Any]] = {}
         self._auth_parser = AuthFrameParser()
         self._json_parser = JsonLineParser()
         self._auth_queue: asyncio.Queue[AuthFrame] = asyncio.Queue()
@@ -360,6 +366,20 @@ class YeelightBleDevice:
                 continue
             if msg.get("method") == "props" and isinstance(msg.get("params"), dict):
                 self._apply_props(msg["params"])
+                self._confirm_pending(msg["params"])
+
+    def _confirm_pending(self, props: dict[str, Any]) -> None:
+        """Complete requests whose expected change the device reported as props.
+
+        Some commands (set_power from off) may be answered only with a props
+        notification instead of a result carrying the request id.
+        """
+        for msg_id, expected in list(self._confirm.items()):
+            if all(str(props.get(k)) == str(v) for k, v in expected.items()):
+                fut = self._pending.pop(msg_id, None)
+                self._confirm.pop(msg_id, None)
+                if fut is not None and not fut.done():
+                    fut.set_result(["ok"])
 
     def _apply_props(self, props: dict[str, Any]) -> None:
         for key, value in props.items():
@@ -383,15 +403,39 @@ class YeelightBleDevice:
             if not fut.done():
                 fut.set_exception(exc)
         self._pending.clear()
+        self._confirm.clear()
 
-    async def request(self, method: str, params: list[Any] | None = None) -> Any:
-        """Send JSON-RPC request and wait for result."""
+    async def request(
+        self,
+        method: str,
+        params: list[Any] | None = None,
+        confirm: dict[str, Any] | None = None,
+    ) -> Any:
+        """Send a JSON-RPC request and wait for its result.
+
+        `confirm`: props that also count as success when the device reports
+        them. On a timeout the link is dropped and the request sent once more
+        over a fresh connection, since a stale link takes writes but never
+        answers.
+        """
+        try:
+            return await self._request_once(method, params, confirm)
+        except YeelightBleTimeout:
+            _LOGGER.debug("%s: %s timed out, reconnecting and retrying", self.name, method)
+            await self._disconnect()
+            return await self._request_once(method, params, confirm)
+
+    async def _request_once(
+        self, method: str, params: list[Any] | None, confirm: dict[str, Any] | None
+    ) -> Any:
         await self.connect()
         assert self._client is not None
         self._msg_id = (self._msg_id % 10000) + 1
         msg_id = self._msg_id
         fut: asyncio.Future[Any] = asyncio.get_running_loop().create_future()
         self._pending[msg_id] = fut
+        if confirm:
+            self._confirm[msg_id] = confirm
         payload = encode_request(msg_id, method, params or [])
         chunk = max(20, (self._client.mtu_size or 23) - 3)
         _LOGGER.debug("%s: ctrl -> %s", self.name, payload)
@@ -404,11 +448,12 @@ class YeelightBleDevice:
             async with asyncio.timeout(REQUEST_TIMEOUT):
                 result = await fut
         except TimeoutError as err:
-            raise YeelightBleError(f"Timeout waiting for {method}") from err
+            raise YeelightBleTimeout(f"Timeout waiting for {method}") from err
         except BleakError as err:
             raise YeelightBleError(f"Write failed: {err}") from err
         finally:
             self._pending.pop(msg_id, None)
+            self._confirm.pop(msg_id, None)
             self._reset_idle_timer()
         return result
 
@@ -431,11 +476,11 @@ class YeelightBleDevice:
 
     # Commands ------------------------------------------------------------ #
     async def turn_on(self, transition_ms: int = 500) -> None:
-        await self.request("set_power", ["on", "smooth", transition_ms])
+        await self.request("set_power", ["on", "smooth", transition_ms], confirm={"power": "on"})
         self._apply_props({"power": "on"})
 
     async def turn_off(self, transition_ms: int = 500) -> None:
-        await self.request("set_power", ["off", "smooth", transition_ms])
+        await self.request("set_power", ["off", "smooth", transition_ms], confirm={"power": "off"})
         self._apply_props({"power": "off"})
 
     async def set_brightness(self, percent: int) -> None:
